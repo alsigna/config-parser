@@ -1,5 +1,686 @@
+!
+no service pad
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec localtime show-timezone year
+service timestamps log datetime msec localtime show-timezone year
+service password-encryption
+!
+hostname {{ HOSTNAME }}
+!
+boot-start-marker
+boot system flash:/{{ IMAGE }}
+boot-end-marker
+!
+!
+vrf definition Front
+ !
+ address-family ipv4
+ exit-address-family
+!
+vrf definition Front_Cellular
+ !
+ address-family ipv4
+ exit-address-family
+!
+logging buffered 1024000
+no logging console
+logging monitor informational
+enable secret 5 $1$TQE1$NnmdH.puSalOMu5HQgRDP.
+!
+aaa new-model
+!
+!
+aaa group server tacacs+ Moscow
+ server name psn001
+ server name psn002
+!
+aaa authentication login default group Moscow local
+aaa authentication enable default enable
+aaa authorization console
+aaa authorization exec default group Moscow local 
+aaa accounting exec default start-stop group Moscow
+aaa accounting commands 1 default start-stop group Moscow
+aaa accounting commands 15 default start-stop group Moscow
+!
+!
+!
+!
+!
+!
+aaa session-id common
+process cpu threshold type total rising 70 interval 5 falling 50 interval 5
+clock timezone {{ TZ_CODE }} {{ TZ_HRS_OFFSET }} 0
+!
+crypto pki trustpoint Vimpelcom_InternalCA_G2
+ enrollment mode ra
+ enrollment url http://scep001.bee.vimpelcom.ru:80/certsrv/mscep/mscep.dll
+ serial-number
+ fqdn {{ HOSTNAME }}.vimpelcom.ru
+ subject-name cn={{ HOSTNAME }}.vimpelcom.ru,C=RU,O=Vimpelcom,L={{ LOCATION }}
+ subject-alt-name {{ HOSTNAME }}.vimpelcom.ru
+ revocation-check none
+ rsakeypair Vimpelcom_InternalCA_G2 2048
+ auto-enroll {{ range(70, 90) | random }} regenerate
+!
+!
+!
+crypto pki certificate map CERT_MAP_G2 10
+ issuer-name co cn = vimpelcom internalca g2
+!
+crypto pki certificate chain Vimpelcom_InternalCA_G2
+ certificate 28000A8793D3373BAB193254A40000000A8793
+  308207F3 308206DB A0030201 02021328 000A8793 D3373BAB 193254A4 0000000A 
+  8793300D 06092A86 4886F70D 01010B05 00306631 12301006 0A099226 8993F22C 
+  64011916 02727531 19301706 0A099226 8993F22C 64011916 0976696D 70656C63 
+  6F6D3113 3011060A 09922689 93F22C64 01191603 62656531 20301E06 03550403 
+  13175669 6D70656C 636F6D20 496E7465 726E616C 43412047 32301E17 0D323030 
+  38303130 32343535 365A170D 32313038 30313032 34353536 5A3081AA 31143012 
+  06035504 05130B46 474C3231 31363232 53383130 302E0609 2A864886 F70D0109 
+  020C2163 732D6B61 6D2D6575 726F2D6D 69726134 342D312E 76696D70 656C636F 
+  6D2E7275 310B3009 06035504 06130252 55311330 11060355 04070C0A 4B686162 
+  61726F76 736B3112 30100603 55040A0C 0956696D 70656C63 6F6D312A 30280603 
+  5504030C 2163732D 6B616D2D 6575726F 2D6D6972 6134342D 312E7669 6D70656C 
+  636F6D2E 72753082 0122300D 06092A86 4886F70D 01010105 00038201 0F003082 
+  010A0282 01010090 7EF0E035 6FF57190 47F2E532 DB6C5A3C 02E6205F D9A0B6DB 
+  8801CE72 B2D9266A 755006C8 B85564AD D998AF16 FECB097B A42D1C7F 45B91B78 
+  519C5E70 7D0CA35B E61222F4 DF562F40 59A80F78 563A153B A8446AD4 8C157F37 
+  3AD04E6D 0AE6E044 A6352B22 D77C6519 A36B72C3 8268F536 C6AF9AC1 B95158F3 
+  3C48DDDF 8A3D8E28 693603EE 2EED9E23 98C34E12 A76B5D1B 2A2B6326 57EAC856 
+  79E5177A 22F006D2 3E81D7AB F003BE48 DB3901CF 2D76E13A 5198456B 75E595F7 
+  99D739B0 3F82B669 146ADB39 7BCEE147 7617DF15 BA0E4028 C700338D 1B54108B 
+  0CEBC000 96869F8B B2C24ECB 208B5204 696972F6 8786C83A 09D4AD8E 2C8D0E20 
+  0E794558 124C5702 03010001 A3820453 3082044F 300B0603 551D0F04 04030205 
+  A0301D06 03551D0E 04160414 13CE3C07 E699E309 3AE90D29 C9251ABF 9A920A74 
+  301F0603 551D2304 18301680 14486D2B A6CAC257 48896F1E FC39525A 7B480B5F 
+  71308201 71060355 1D1F0482 01683082 01643082 0160A082 015CA082 01588681 
+  C86C6461 703A2F2F 2F434E3D 56696D70 656C636F 6D253230 496E7465 726E616C 
+  43412532 3047322C 434E3D42 65656C69 6E65504B 4947322C 434E3D43 44502C43 
+  4E3D5075 626C6963 2532304B 65792532 30536572 76696365 732C434E 3D536572 
+  76696365 732C434E 3D436F6E 66696775 72617469 6F6E2C44 433D7669 6D70656C 
+  636F6D2C 44433D72 753F6365 72746966 69636174 65526576 6F636174 696F6E4C 
+  6973743F 62617365 3F6F626A 65637443 6C617373 3D63524C 44697374 72696275 
+  74696F6E 506F696E 74864968 7474703A 2F2F706B 69696E74 2E626565 2E76696D 
+  70656C63 6F6D2E72 752F4365 7274456E 726F6C6C 2F56696D 70656C63 6F6D2532 
+  30496E74 65726E61 6C434125 32304732 2E63726C 86406874 74703A2F 2F706B69 
+  6578742E 6265656C 696E652E 72752F70 6B692F63 64702F56 696D7065 6C636F6D 
+  25323049 6E746572 6E616C43 41253230 47322E63 726C3082 01A40608 2B060105 
+  05070101 04820196 30820192 302D0608 2B060105 05073001 86216874 74703A2F 
+  2F6F6373 702E6265 652E7669 6D70656C 636F6D2E 72752F6F 63737030 81BB0608 
+  2B060105 05073002 8681AE6C 6461703A 2F2F2F43 4E3D5669 6D70656C 636F6D25 
+  3230496E 7465726E 616C4341 25323047 322C434E 3D414941 2C434E3D 5075626C 
+  69632532 304B6579 25323053 65727669 6365732C 434E3D53 65727669 6365732C 
+  434E3D43 6F6E6669 67757261 74696F6E 2C44433D 76696D70 656C636F 6D2C4443 
+  3D72753F 63414365 72746966 69636174 653F6261 73653F6F 626A6563 74436C61 
+  73733D63 65727469 66696361 74696F6E 41757468 6F726974 79305506 082B0601 
+  05050730 02864968 7474703A 2F2F706B 69696E74 2E626565 2E76696D 70656C63 
+  6F6D2E72 752F4365 7274456E 726F6C6C 2F56696D 70656C63 6F6D2532 30496E74 
+  65726E61 6C434125 32304732 2E637274 304C0608 2B060105 05073002 86406874 
+  74703A2F 2F706B69 6578742E 6265656C 696E652E 72752F70 6B692F61 69612F56 
+  696D7065 6C636F6D 25323049 6E746572 6E616C43 41253230 47322E63 7274302F 
+  0603551D 110101FF 04253023 82216373 2D6B616D 2D657572 6F2D6D69 72613434 
+  2D312E76 696D7065 6C636F6D 2E727530 3E06092B 06010401 82371507 0431302F 
+  06272B06 01040182 37150885 E6B23B85 B7D64A82 AD9F0081 93952585 80E46D81 
+  4E839B94 5D85B393 5E020164 02010F30 31060355 1D25042A 30280608 2B060105 
+  05080202 06082B06 01050507 03050608 2B060105 05070301 06082B06 01050507 
+  0303303F 06092B06 01040182 37150A04 32303030 0A06082B 06010505 08020230 
+  0A06082B 06010505 07030530 0A06082B 06010505 07030130 0A06082B 06010505 
+  07030330 0D06092A 864886F7 0D01010B 05000382 0101004A 5DFE1FCA 51CDD9E9 
+  603C9179 89B8133A BCEB9A6C 6DD93181 4B79C08D 05BCEA2C 810BC5E0 A4C04B88 
+  24174989 52425256 D3374876 8FF9B782 734F9AA8 FC5BEA3F D3A37F14 8C84AB11 
+  D4757755 08EF962E C5313116 98AA568A 4E0CDFF6 CECAE43C F2C95CA2 9249EBCC 
+  D05E575E 61E5AE01 F1F77BA8 F4B29797 B143E5D5 3A4D7E9C 58622613 902242F8 
+  C793AC79 A6C42ED2 0F066C5D B2462568 ABD13355 AE3BA214 1D3FA018 D62B7172 
+  A44A81FD BB15084E 9400200C 700EFA0E FA4158AF 660CB16B AF03CA4C E13803DB 
+  C1860842 15CD00EB BDD14DB8 9943BC8A 5E94BA52 6E9F9667 F70B28BA E38AF595 
+  AEB87C2B 78F40261 BB364115 EFC2AE7A 3E5FEF98 904D6B
+        quit
+ certificate ca 72000000023649D20ED2981FC5000000000002
+  308206A9 30820591 A0030201 02021372 00000002 3649D20E D2981FC5 00000000 
+  0002300D 06092A86 4886F70D 01010B05 00304D31 12301006 0A099226 8993F22C 
+  64011916 02727531 19301706 0A099226 8993F22C 64011916 0976696D 70656C63 
+  6F6D311C 301A0603 55040313 1356696D 70656C63 6F6D2052 6F6F7443 41204732 
+  301E170D 31383131 32363130 33373530 5A170D32 38313132 36313034 3735305A 
+  30663112 3010060A 09922689 93F22C64 01191602 72753119 3017060A 09922689 
+  93F22C64 01191609 76696D70 656C636F 6D311330 11060A09 92268993 F22C6401 
+  19160362 65653120 301E0603 55040313 1756696D 70656C63 6F6D2049 6E746572 
+  6E616C43 41204732 30820122 300D0609 2A864886 F70D0101 01050003 82010F00 
+  3082010A 02820101 00DAE0F6 543A0403 6E68AF6D 0AC454B5 7D664C22 8D4CEB5F 
+  960B01C4 D645D954 9BA56F13 B1324125 D66F2EAC DCAF5E40 1B53D19D FA767A64 
+  F48C908F 65C74922 F443CAE6 E681C516 38143002 693D6C12 3A3E77F6 58332041 
+  3FFB3857 121A2126 EABC3F3F 307FE1E8 DE5EE5E2 200277EA B726E510 128D52E2 
+  440C9022 AC851BFD 59E31FB7 FC82F23F 0AA1DAF0 A3920BF4 C4D99A9C B65251AE 
+  6EE6449C 300C7ACB FD57B00B B2EDC090 FB6DC583 1CD739FA 9B092E62 9CF51F51 
+  551122E5 37D1283F 0C96BD2C CAA989C6 ACC495F1 8EBAC506 48B26AA4 74B82D49 
+  4FAF05E3 A19D1932 F584E54D EF7ED317 74708256 6B41E91F 8ED6219A 33AB0AD6 
+  39E5894F 0AF0DB2C 33020301 0001A382 03673082 03633010 06092B06 01040182 
+  37150104 03020100 301D0603 551D0E04 16041448 6D2BA6CA C2574889 6F1EFC39 
+  525A7B48 0B5F7130 1906092B 06010401 82371402 040C1E0A 00530075 00620043 
+  0041300B 0603551D 0F040403 02018630 0F060355 1D130101 FF040530 030101FF 
+  301F0603 551D2304 18301680 14EFE0C8 D9DF2CAE 9ED4FACB 77D1EB42 5E666EB0 
+  4E308201 67060355 1D1F0482 015E3082 015A3082 0156A082 0152A082 014E8681 
+  C66C6461 703A2F2F 2F434E3D 56696D70 656C636F 6D253230 526F6F74 43412532 
+  3047322C 434E3D56 696D7065 6C526F6F 74434147 322C434E 3D434450 2C434E3D 
+  5075626C 69632532 304B6579 25323053 65727669 6365732C 434E3D53 65727669 
+  6365732C 434E3D43 6F6E6669 67757261 74696F6E 2C44433D 76696D70 656C636F 
+  6D2C4443 3D72753F 63657274 69666963 61746552 65766F63 6174696F 6E4C6973 
+  743F6261 73653F6F 626A6563 74436C61 73733D63 524C4469 73747269 62757469 
+  6F6E506F 696E7486 45687474 703A2F2F 706B6969 6E742E62 65652E76 696D7065 
+  6C636F6D 2E72752F 43657274 456E726F 6C6C2F56 696D7065 6C636F6D 25323052 
+  6F6F7443 41253230 47322E63 726C863C 68747470 3A2F2F70 6B696578 742E6265 
+  656C696E 652E7275 2F706B69 2F636470 2F56696D 70656C63 6F6D2532 30526F6F 
+  74434125 32304732 2E63726C 30820169 06082B06 01050507 01010482 015B3082 
+  01573081 B706082B 06010505 07300286 81AA6C64 61703A2F 2F2F434E 3D56696D 
+  70656C63 6F6D2532 30526F6F 74434125 32304732 2C434E3D 4149412C 434E3D50 
+  75626C69 63253230 4B657925 32305365 72766963 65732C43 4E3D5365 72766963 
+  65732C43 4E3D436F 6E666967 75726174 696F6E2C 44433D76 696D7065 6C636F6D 
+  2C44433D 72753F63 41436572 74696669 63617465 3F626173 653F6F62 6A656374 
+  436C6173 733D6365 72746966 69636174 696F6E41 7574686F 72697479 30510608 
+  2B060105 05073002 86456874 74703A2F 2F706B69 696E742E 6265652E 76696D70 
+  656C636F 6D2E7275 2F436572 74456E72 6F6C6C2F 56696D70 656C636F 6D253230 
+  526F6F74 43412532 3047322E 63727430 4806082B 06010505 07300286 3C687474 
+  703A2F2F 706B6965 78742E62 65656C69 6E652E72 752F706B 692F6169 612F5669 
+  6D70656C 636F6D25 3230526F 6F744341 25323047 322E6372 74300D06 092A8648 
+  86F70D01 010B0500 03820101 0073091E 41C84C13 AA55FDA7 6EC9D6BD E0666471 
+  23628831 3B134B61 ECD4E5FE B24A7265 C920F3EB 69FBB6E7 AAE4F172 00F588E2 
+  0B433742 B4CDD640 2C247D0A 6393DEF7 FAE56C7B 1D6354E3 88C10F5B 259DC322 
+  AC056469 05BB51C3 22078156 4C932AE8 1F68CD57 A5E8A1E4 4E9F7AC0 E19A8706 
+  8066017D 83762D12 06579AB9 D868CB70 839723AE E43F5C04 28A5EBBE E3B835DE 
+  46C74F31 F578A697 E2BA9923 F6076CEE 52BF8957 D7BF4B8D 3D3CAA64 F1D9D73A 
+  494C8996 86A56002 B44A9833 6BC26112 71CF4E6C 1107ACDC 67E3E27E 09136551 
+  9BC7B92B B265327A 0AF9DCD9 63F6115D 839543D5 4A037EF7 139A4CEF 74A31510 
+  57CA33BD BDF66D1D DBAE189E E3
+        quit
+!
+!
+!
+!
+!
+no ip source-route
+ip arp proxy disable
+no ip gratuitous-arps
+!
+!
+!
+!
+!
+!
+!
+ip domain list vimpelcom.ru
+ip domain list bee.vimpelcom.ru
+no ip domain lookup
+ip domain name vimpelcom.ru
+ip host scep001.bee.vimpelcom.ru 172.21.232.154
+ip name-server 192.168.163.160
+ip name-server 192.168.175.161
+ip cef
+no ipv6 cef
+!
+!
+!
+!
+multilink bundle-name authenticated
+!
+!
+chat-script lte "" "AT!CALL" TIMEOUT 20 "OK"
+!
+!
+!
+archive
+ log config
+  logging enable
+  hidekeys
+username admin privilege 15 secret 5 $1$NTGC$CAgCjExQ0zz0Iqf3eROAM0
+!
+redundancy
+!
+!
+!
+bfd-template single-hop bfd_DMVPN
+ interval min-tx 1000 min-rx 1000 multiplier 5
+!
+!
+!
+controller Cellular 0
+ lte modem link-recovery rssi onset-threshold -110
+ lte modem link-recovery monitor-timer 20
+ lte modem link-recovery wait-timer 10
+ lte modem link-recovery debounce-count 6
+!
+ip tcp selective-ack
+ip tcp mss 1232
+ip tcp window-size 65535
+ip tcp path-mtu-discovery
+!
+!
+crypto isakmp policy 5
+ encr aes 256
+ group 5
+ lifetime {{ range(1260, 1440) | random * 60 }}
+!
+crypto isakmp invalid-spi-recovery
+crypto isakmp keepalive 65 5
+crypto isakmp profile ISAKMP_G2
+   self-identity fqdn
+   ca trust-point Vimpelcom_InternalCA_G2
+   match certificate CERT_MAP_G2
+!
+!
+crypto ipsec transform-set AES256_TUN esp-aes 256 esp-sha-hmac 
+ mode tunnel
+crypto ipsec transform-set AES256 esp-aes 256 esp-sha-hmac 
+ mode transport
+!
+crypto ipsec profile IPSEC_G2_BKP1
+ set transform-set AES256 
+ set isakmp-profile ISAKMP_G2
+!
+!
+!
+crypto map INET_G2 100 ipsec-isakmp 
+ set peer {{ TUNNEL_4000_HUB_1_NBMA }}
+ set transform-set AES256_TUN 
+ set isakmp-profile ISAKMP_G2
+ match address 140
+!
+!
+!
+!
+!
+!
+interface Loopback1
+ description -= Transport Loopback =-
+ vrf forwarding Front
+ ip address {{ TUNNEL_4000_IP }} 255.255.255.255
+!
+interface Tunnel3000
+ description -= BACKUP Tunnel =-
+ ip address {{ TUNNEL_3000_IP }} 255.255.255.0
+ no ip redirects
+ ip mtu 1272
+ ip nhrp authentication {{ TUNNEL_3000_NHRP_KEY }}
+ ip nhrp network-id {{ TUNNEL_3000_NHRP_ID }}
+ ip nhrp nhs {{ TUNNEL_3000_HUB_1_IP }} nbma {{ TUNNEL_3000_HUB_1_NBMA }}
+ ip nhrp registration no-unique
+ ip tcp adjust-mss 1232
+ load-interval 30
+ tunnel source Cellular0
+ tunnel destination {{ TUNNEL_3000_HUB_1_NBMA }}
+ tunnel key {{ TUNNEL_3000_TUNNEL_KEY }}
+ tunnel vrf Front_Cellular
+ tunnel protection ipsec profile IPSEC_G2_BKP1
+!
+interface Tunnel4000
+ description -= ACTIVE Tunnel =-
+ ip address {{ TUNNEL_4000_IP }} 255.255.255.0
+ no ip redirects
+ ip mtu 1272
+ ip nhrp authentication {{ TUNNEL_4000_NHRP_KEY }}
+ ip nhrp network-id {{ TUNNEL_4000_NHRP_ID }}
+ ip nhrp nhs {{ TUNNEL_4000_HUB_1_IP }} nbma {{ TUNNEL_4000_HUB_1_NBMA }}
+ ip nhrp registration no-unique
+ ip tcp adjust-mss 1232
+ load-interval 30
+ bfd template bfd_DMVPN
+ tunnel source Loopback1
+ tunnel mode gre multipoint
+ tunnel key {{ TUNNEL_4000_TUNNEL_KEY }}
+ tunnel vrf Front
+!
+interface Cellular0
+ vrf forwarding Front_Cellular
+ ip address negotiated
+ ip access-group OUTSIDE_IN in 
+ encapsulation slip
+ load-interval 30
+ dialer in-band
+ dialer string lte
+ dialer watch-group 1
+ dialer-group 1
+ no peer default ip address
+ async mode interactive
+ routing dynamic
+!
+!
+interface FastEthernet0
+ shut
+!
+interface FastEthernet1
+ shut
+!
+interface FastEthernet2
+ shut
+!
+interface FastEthernet3
+ description -= Link to SW =-
+ switchport mode trunk
+!
+interface GigabitEthernet0
+ description {{ GIG_0_DESCRIPTION }}
+ vrf forwarding Front
+ ip address {{ GIG_0_ADDRESS }}
+ ip access-group OUTSIDE_IN in
+ no ip redirects
+ no ip unreachables
+ no ip proxy-arp
+ ip mtu 1382
+ load-interval 30
+ duplex auto
+ speed auto
+ no cdp enable
+ crypto map INET_G2
+ no shutdown
+!
+interface Vlan1
+ no ip address
+ shutdown
+!
+vlan 10
+ name LAN
+!
+interface Vlan10
+ description -= LAN =-
+ ip address {{ VLAN_10_ROUTER_IP }} {{ VLAN_10_MASK }}
+ ip helper-address {{ VLAN_10_IP_HELPER_1 }}
+ ip helper-address {{ VLAN_10_IP_HELPER_2 }}
+ no ip proxy-arp
+ ip mtu 1272
+ ip tcp adjust-mss 1232
+ load-interval 30
+ no shutdown
+!
+router bgp 64995
+ bgp router-id {{ VLAN_10_ROUTER_IP }}
+ bgp log-neighbor-changes
+ no bgp default ipv4-unicast
+ neighbor ACTIVE peer-group
+ neighbor ACTIVE remote-as 64995
+ neighbor ACTIVE description -= primary session via local hub =-
+ neighbor ACTIVE password {{ TUNNEL_4000_BGP_PASSWORD }}
+ neighbor ACTIVE update-source Tunnel4000
+ neighbor ACTIVE fall-over bfd
+ neighbor BACKUP peer-group
+ neighbor BACKUP remote-as 64995
+ neighbor BACKUP description -= backup session via SKL =-
+ neighbor BACKUP password 7 {{ TUNNEL_3000_BGP_PASSWORD }}
+ neighbor BACKUP update-source Tunnel3000
+ neighbor {{ TUNNEL_3000_HUB_1_IP }} peer-group BACKUP
+ neighbor {{ TUNNEL_4000_HUB_1_IP }} peer-group ACTIVE
+ !
+ address-family ipv4
+  bgp scan-time 5
+  redistribute connected route-map LAN
+  neighbor ACTIVE send-community both
+  neighbor ACTIVE weight 20
+  neighbor ACTIVE prefix-list LAN out
+  neighbor ACTIVE maximum-prefix 100 10 restart 1
+  neighbor BACKUP send-community both
+  neighbor BACKUP advertise-map LAN non-exist-map NON-EXIST-MAP
+  neighbor BACKUP weight 10
+  neighbor BACKUP prefix-list LAN out
+  neighbor BACKUP maximum-prefix 100 10 restart 1
+  neighbor {{ TUNNEL_3000_HUB_1_IP }} activate
+  neighbor {{ TUNNEL_4000_HUB_1_IP }} activate
+  maximum-paths 2
+ exit-address-family
+!
+ip forward-protocol nd
+no ip http server
+no ip http secure-server
+!
+ip bgp-community new-format
+!
+ip route vrf Front {{ TUNNEL_4000_HUB_1_NBMA }} 255.255.255.255 GigabitEthernet0 {{ GIG_0_DEFAULT_GW }}
+ip route vrf Front_Cellular {{ TUNNEL_3000_HUB_1_NBMA }} 255.255.255.255 Cellular0
+ip tacacs source-interface Vlan10
+ip ssh rsa keypair-name SSH
+ip ssh version 2
+ip scp server enable
+!
+object-group service DMVPN 
+ udp eq isakmp
+ udp eq non500-isakmp
+ esp
+ tcp eq 22
+ udp eq 0
+!
+object-group network HUB 
+ host 217.118.86.28
+ host {{ TUNNEL_3000_HUB_1_NBMA }}
+ host {{ TUNNEL_4000_HUB_1_NBMA }}
+!
+ip access-list extended OUTSIDE_IN
+ remark ### DMVNP
+ permit object-group DMVPN object-group HUB any
+ remark ### ICMP
+ permit icmp any any unreachable
+ permit icmp any any echo
+ permit icmp any any echo-reply
+!
+ip prefix-list LAN seq 5 permit {{ VLAN_10_NETWORK }}/{{ VLAN_10_MASK_LENGTH }}
+!
+ip prefix-list LOCAL_HUB seq 5 permit {{ TUNNEL_4000_HUB_1_LOOPBACK }}/32
+ip sla responder
+logging monitor informational
+logging trap notifications
+logging source-interface Vlan10
+logging host 192.168.192.128
+logging host 172.21.205.104
+logging host 192.168.182.173
+dialer watch-list 1 ip 5.6.7.8 0.0.0.0
+dialer watch-list 1 delay route-check initial 60
+dialer watch-list 1 delay connect 1
+dialer-list 1 protocol ip permit
+!
+route-map NON-EXIST-MAP permit 10
+ match ip address prefix-list LOCAL_HUB
+!
+route-map LAN permit 10
+ match ip address prefix-list LAN
+ set community 64995:2{{ TUNNEL_4000_HUB_1_CAR_CODE }}
+!
+snmp-server community {{ SNMP_COMMUNITY_RO }} RO 2
+snmp-server community {{ SNMP_COMMUNITY_RW }} RW 3
+snmp-server ifindex persist
+snmp-server trap link ietf
 snmp-server trap-source Vlan10
 snmp-server location {{ SNMP_LOCATION }}
+snmp-server contact {{ SNMP_CONTACT }}
 snmp-server host 172.21.205.104 version 2c 6}sU-pSr 
+snmp-server host 172.21.205.105 version 2c 6}sU-pSr 
+snmp-server host 172.21.205.111 version 2c 6}sU-pSr
 snmp mib persist cbqos
 snmp-server enable traps
+tacacs server psn001
+ address ipv4 10.50.65.253
+ key 7 097F5B3929000521020F162F3F
+tacacs server psn002
+ address ipv4 10.50.65.254
+ key 7 097F5B3929000521020F162F3F
+access-list 1 remark "VTY access"
+access-list 1 permit 10.10.10.10
+access-list 1 permit 172.25.183.7
+access-list 1 permit 172.26.197.117
+access-list 1 permit 172.26.197.123
+access-list 1 permit 192.168.189.223
+access-list 1 permit 192.168.1.127
+access-list 1 permit 10.245.245.18
+access-list 1 permit 172.21.205.111
+access-list 1 permit 172.25.183.25
+access-list 1 permit 172.21.205.104
+access-list 1 permit 172.21.205.105
+access-list 1 permit 172.25.20.130
+access-list 1 permit 192.168.192.128
+access-list 1 permit 192.168.194.128
+access-list 1 permit 172.25.30.135
+access-list 1 permit 172.27.185.57
+access-list 1 permit 192.168.190.236
+access-list 1 permit 172.26.45.222
+access-list 1 permit 172.24.132.121
+access-list 1 permit 192.168.211.241
+access-list 1 permit 172.26.128.122
+access-list 1 permit 172.26.200.50
+access-list 1 permit 172.26.231.29
+access-list 1 permit 192.168.211.245
+access-list 1 permit 10.51.119.1
+access-list 1 permit 172.26.128.98
+access-list 1 permit 10.51.111.1
+access-list 1 permit 172.27.146.125
+access-list 1 permit 192.168.109.92
+access-list 1 permit 192.168.176.130
+access-list 1 permit 192.168.109.91
+access-list 1 permit 192.168.1.54
+access-list 1 permit 192.168.109.90
+access-list 1 permit 192.168.163.173
+access-list 1 permit 172.26.28.195
+access-list 1 permit 10.245.245.103
+access-list 1 permit 192.168.1.26
+access-list 1 permit 192.168.182.173
+access-list 1 permit 192.168.160.190
+access-list 1 permit 10.10.2.128
+access-list 1 permit 172.25.185.132
+access-list 1 permit 172.25.185.130
+access-list 1 permit 172.25.20.50
+access-list 1 permit 172.21.225.195
+access-list 1 permit 172.21.225.196
+access-list 1 permit 172.27.0.19
+access-list 1 permit 172.25.15.8
+access-list 1 permit 172.25.183.183
+access-list 1 permit 172.25.21.101
+access-list 1 permit 172.25.21.102
+access-list 1 permit 172.25.21.106
+access-list 1 permit 172.25.21.107
+access-list 1 permit 172.26.28.103
+access-list 1 permit 192.168.194.127
+access-list 1 permit 192.168.182.9
+access-list 1 permit 192.168.188.14
+access-list 1 permit 192.168.188.9
+access-list 1 permit 192.168.137.63
+access-list 1 permit 10.255.0.17
+access-list 1 permit 217.118.86.28
+access-list 1 permit 10.255.0.19
+access-list 1 permit 10.10.2.239
+access-list 1 permit 172.26.197.142
+access-list 1 permit 172.26.128.200
+access-list 1 permit 10.127.84.222
+access-list 1 permit 10.50.63.0 0.0.0.255
+access-list 1 permit 172.27.134.0 0.0.1.255
+access-list 1 permit 172.27.4.0 0.0.0.127
+access-list 1 permit 192.168.177.0 0.0.0.255
+access-list 1 permit 192.168.198.0 0.0.0.255
+access-list 2 remark "SNMP RO access"
+access-list 2 permit 172.26.197.119
+access-list 2 permit 172.26.197.117
+access-list 2 permit 192.168.189.223
+access-list 2 permit 172.21.230.85
+access-list 2 permit 10.245.245.1
+access-list 2 permit 192.168.1.127
+access-list 2 permit 10.245.245.18
+access-list 2 permit 172.21.205.111
+access-list 2 permit 172.21.205.104
+access-list 2 permit 172.21.205.105
+access-list 2 permit 172.27.0.149
+access-list 2 permit 172.25.20.130
+access-list 2 permit 192.168.192.128
+access-list 2 permit 192.168.194.128
+access-list 2 permit 172.25.30.135
+access-list 2 permit 192.168.190.236
+access-list 2 permit 172.24.132.121
+access-list 2 permit 172.26.128.98
+access-list 2 permit 192.168.109.92
+access-list 2 permit 192.168.176.130
+access-list 2 permit 192.168.109.91
+access-list 2 permit 192.168.1.54
+access-list 2 permit 192.168.137.135
+access-list 2 permit 192.168.163.173
+access-list 2 permit 192.168.182.173
+access-list 2 permit 192.168.160.190
+access-list 2 permit 10.10.2.128
+access-list 2 permit 172.25.185.130
+access-list 2 permit 172.25.20.50
+access-list 2 permit 172.21.225.195
+access-list 2 permit 172.21.225.196
+access-list 2 permit 172.25.15.8
+access-list 2 permit 172.27.0.14
+access-list 2 permit 172.25.21.101
+access-list 2 permit 172.25.21.102
+access-list 2 permit 172.25.21.106
+access-list 2 permit 172.25.21.107
+access-list 2 permit 172.26.204.170
+access-list 2 permit 192.168.194.127
+access-list 2 permit 172.25.20.119
+access-list 2 permit 192.168.182.9
+access-list 2 permit 172.26.197.151
+access-list 2 permit 10.10.2.239
+access-list 2 permit 172.21.250.184
+access-list 2 permit 172.26.128.200
+access-list 2 permit 192.168.198.0 0.0.0.255
+access-list 2 permit 192.168.177.0 0.0.0.255
+access-list 2 permit 10.50.63.128 0.0.0.127
+access-list 2 permit 172.27.4.0 0.0.0.127
+access-list 3 remark "SNMP RW access"
+access-list 3 permit 172.26.197.117
+access-list 3 permit 172.25.20.130
+access-list 3 permit 192.168.192.128
+access-list 3 permit 192.168.194.128
+access-list 3 permit 172.24.132.121
+access-list 3 permit 192.168.109.92
+access-list 3 permit 192.168.176.130
+access-list 3 permit 192.168.109.91
+access-list 3 permit 192.168.1.54
+access-list 3 permit 192.168.182.173
+access-list 3 permit 172.25.15.8
+access-list 3 permit 172.25.21.102
+access-list 3 permit 172.25.21.106
+access-list 3 permit 172.25.21.107
+access-list 3 permit 172.25.20.119
+access-list 3 permit 192.168.198.0 0.0.0.255
+access-list 3 permit 10.50.63.128 0.0.0.127
+access-list 140 permit gre host {{ TUNNEL_4000_IP }} host {{ TUNNEL_4000_HUB_1_NBMA }}
+!
+!
+!
+control-plane
+!
+!
+!
+!
+!
+line con 0
+ exec-timeout 30 0
+ logging synchronous
+ no modem enable
+ transport preferred none
+line aux 0
+ no exec
+ transport preferred none
+ transport output none
+line 2
+ no activation-character
+ no exec
+ transport preferred none
+line 3
+ script dialer lte
+ modem InOut
+ no exec
+line vty 0 4
+ access-class 1 in vrf-also
+ exec-timeout 30 0
+ logging synchronous
+ transport preferred none
+ transport input telnet ssh
+ transport output telnet ssh
+line vty 5 15
+ access-class 1 in vrf-also
+ exec-timeout 30 0
+ logging synchronous
+ transport preferred none
+ transport input telnet ssh
+ transport output telnet ssh
+!
+ntp source Vlan10
+ntp update-calendar
+ntp server 10.31.129.129
+ntp server 192.168.181.42
+ntp server 192.168.191.191
+!  

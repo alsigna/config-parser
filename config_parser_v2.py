@@ -31,11 +31,11 @@ class ConfigTree:
     def __str__(self) -> str:
         # re_str = self.format_command()
         # return re_str.format(**self.attr) or "root"
-        cmd = self.decode_to_string()
-        return cmd
+        # cmd = self.decode_to_string()
+        return self.format_command(mode="full")
 
     def __repr__(self) -> str:
-        cmd = self.decode_to_string()
+        cmd = self.format_command(mode="full")
         return f"({id(self)}) {cmd}"
         # re_str = self.format_command()
         # repr_ = re_str.format(**self.attr) or "root"
@@ -45,14 +45,23 @@ class ConfigTree:
     def __eq__(self, compare_obj: object) -> bool:
         re_attr_1 = {}
         re_attr_2 = {}
+        # re_attr_1 = self.attr.copy()
+        # re_attr_2 = compare_obj.attr.copy()
+
+        # for attr_name, attr_value in re_attr_1.items():
+        #     if re.search(r"{{ \S+ }}", attr_value):
+        #         re_attr_1[attr_name] = r"\S+"
+        # for attr_name, attr_value in re_attr_2.items():
+        #     if re.search(r"{{ \S+ }}", attr_value):
+        #         re_attr_2[attr_name] = r"\S+"
 
         for attr in self.attr.keys():
             re_attr_1.setdefault(attr, r"\S+")
         for attr in compare_obj.attr.keys():
             re_attr_2.setdefault(attr, r"\S+")
 
-        re_str_1 = self.format_command()
-        re_str_2 = compare_obj.format_command()
+        re_str_1 = self.format_command(mode="re")
+        re_str_2 = compare_obj.format_command(mode="re")
 
         match_result_1 = re.match(rf"^{re_str_1.format(**re_attr_1)}$", str(compare_obj).strip())
         match_result_2 = re.match(rf"^{re_str_2.format(**re_attr_2)}$", str(self).strip())
@@ -62,9 +71,9 @@ class ConfigTree:
         else:
             return False
 
-    def format_command(self) -> str:
+    def format_command(self, mode="") -> str:
         if "{" not in self.config_line and "}" not in self.config_line:
-            return self.config_line
+            return self.config_line or "root"
         ccb = "<ClosingCurlyBracket>"
         ocb = "<OpeningCurlyBracket>"
         dccb = "<DoubleClosingCurlyBracket>"
@@ -72,9 +81,23 @@ class ConfigTree:
         cmd = re.sub(r"{{ (\S+) }}", rf"{docb}\1{dccb}", self.config_line)
         cmd = re.sub(r"{", ocb, cmd)
         cmd = re.sub(r"}", ccb, cmd)
+        if mode == "re":
+            cmd = re.sub(dccb, "}", cmd)
+            cmd = re.sub(docb, "{", cmd)
+            return cmd
+        elif mode == "full":
+            cmd = re.sub(dccb, "}", cmd)
+            cmd = re.sub(docb, "{", cmd)
+            cmd = cmd.format(**self.attr)
+            cmd = re.sub(ccb, "}", cmd)
+            cmd = re.sub(ocb, "{", cmd)
+            return cmd
+        else:
+            return cmd
+
         # cmd = re.sub(dccb, "}", cmd)
         # cmd = re.sub(docb, "{", cmd)
-        return cmd
+        # return cmd
         # cmd = re.sub(r"{{ ", "{", self.config_line)
         # cmd = re.sub(r" }}", "}", cmd)
         # return cmd
@@ -133,7 +156,7 @@ class ConfigTree:
 
     def merge(self, obj):
         if self == obj and len(self.child) == 0 and len(obj.child) == 0 and self.priority < obj.priority:
-            self.attr = obj.attr
+            self.attr = obj.attr.copy()
 
         for obj_child in obj.child:
             if obj_child not in self.child:
@@ -143,6 +166,15 @@ class ConfigTree:
                 for self_child in self.child:
                     if self_child == obj_child:
                         self_child.merge(obj_child)
+
+    def replace(self, obj):
+        for obj_child in obj.child:
+            for cnt, self_child in enumerate(self.child):
+                if obj_child == self_child:
+                    self_child.parent = None
+                    obj_child.parent = self
+                    self.child.pop(cnt)
+                    self.child.insert(cnt, obj_child)
 
     def parse_attr(self, template):
         re_attr = {}
@@ -157,8 +189,8 @@ class ConfigTree:
         for template_child in template.child:
             for self_child in self.child:
                 if self_child == template_child:
-                    self_child.attr = template_child.attr
-                    self_child.parse_attr(template_child.format_command())
+                    self_child.attr = template_child.attr.copy()
+                    self_child.parse_attr(template_child.format_command(mode="re"))
                     self_child.config_line = template_child.config_line
                     self_child.add_template(template_child)
 
@@ -183,8 +215,8 @@ class ConfigTree:
         return root
 
 
-def get_tree(filename, template=None, priority=100):
-    with open(filename, "r") as file:
+def get_tree(config, template=None, priority=100):
+    with open(config, "r") as file:
         cfg_lines = file.read().strip()
     cfg = ConfigTree(priority=priority)
     cfg.build_tree(cfg_lines)
@@ -208,20 +240,43 @@ template = get_tree("cfg.j2")
 # cfg1.add_template(template)
 # print(cfg1.get_config(raw=True))
 
+
+cfg1 = get_tree(
+    config="cfg1.txt",
+    template="cfg.j2",
+)
+cfg2 = get_tree(
+    config="cfg2.txt",
+    template="cfg.j2",
+    priority=101,
+)
+full = get_tree("full.txt")
+
+print("~" * 20 + "cfg origin" + "~" * 20)
+print(cfg1.get_config())
+
 print("~" * 20 + "merged" + "~" * 20)
-cfg1 = get_tree("cfg1.txt", "cfg.j2")
-cfg2 = get_tree("cfg2.txt", "cfg.j2", 101)
 cfg1.merge(cfg2)
 print(cfg1.get_config())
 
-# print("~" * 20 + "filter" + "~" * 20)
-# f = cfg1.filter("activate")
-# # f = cfg1.filter("^interface V\S+0")
-# print(f.get_config())
-
-# print("~" * 50)
-# full = get_tree("full.txt")
+# print("~" * 50 + "full" + "~" * 20)
 # print(full.get_config())
+
+# print("~" * 20 + "filter" + "~" * 20)
+# f = full.filter("interface Tunnel")
+# print(f.get_config(symbol="| "))
+
+print("~" * 20 + "replace" + "~" * 20)
+cfg1.merge(cfg2)
+print(cfg1.get_config())
+
+
+# print("~" * 20 + "delete" + "~" * 20)
+# cfg1.delete(cfg2)
+# print(cfg1.get_config())
+
+
+print("~" * 20 + "end" + "~" * 20)
 
 # print(cfg1.child[0] == cfg2.child[0])
 

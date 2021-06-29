@@ -1,14 +1,10 @@
 interface Vlan10
- load-interval 30
- no shutdown
+ load-interval 10
+ no shutdown vlan10
+ description -= vlan10 =-
 !
 interface Vlan11
- load-interval 30
- no shutdown
- description -= Vlan10 =-
+ load-interval 11
+ no shutdown vlan11
+ description -= Vlan11 =-
 !
-snmp-server trap-source Vlan10
-snmp-server location {{ SNMP_LOCATION }}
-snmp-server host 172.21.205.104 version 2c 6}sU-pSr 
-snmp mib persist cbqos
-snmp-server enable traps
