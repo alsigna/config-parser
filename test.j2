@@ -1,0 +1,89 @@
+interface Vlan10
+ description -= LAN =-
+ ip address {{ VLAN_10_ROUTER_IP }} {{ VLAN_10_MASK }}
+ ip helper-address {{ VLAN_10_IP_HELPER_1 }}
+ ip helper-address {{ VLAN_10_IP_HELPER_2 }}
+ no ip proxy-arp
+ ip mtu 1272
+ ip tcp adjust-mss 1232
+ load-interval 30
+ no shutdown
+!
+router bgp 64995
+ bgp router-id {{ VLAN_10_ROUTER_IP }}
+ bgp log-neighbor-changes
+ no bgp default ipv4-unicast
+ neighbor ACTIVE peer-group
+ neighbor ACTIVE remote-as 64995
+ neighbor ACTIVE description -= primary session via local hub =-
+ neighbor ACTIVE password {{ TUNNEL_4000_BGP_PASSWORD }}
+ neighbor ACTIVE update-source Tunnel4000
+ neighbor ACTIVE fall-over bfd
+ neighbor BACKUP peer-group
+ neighbor BACKUP remote-as 64995
+ neighbor BACKUP description -= backup session via SKL =-
+ neighbor BACKUP password 7 {{ TUNNEL_3000_BGP_PASSWORD }}
+ neighbor BACKUP update-source Tunnel3000
+ neighbor {{ TUNNEL_3000_HUB_1_IP }} peer-group BACKUP
+ neighbor {{ TUNNEL_4000_HUB_1_IP }} peer-group ACTIVE
+ !
+ address-family ipv4
+  bgp scan-time 5
+  redistribute connected route-map LAN
+  neighbor ACTIVE send-community both
+  neighbor ACTIVE weight 20
+  neighbor ACTIVE prefix-list LAN out
+  neighbor ACTIVE maximum-prefix 100 10 restart 1
+  neighbor BACKUP send-community both
+  neighbor BACKUP advertise-map LAN non-exist-map NON-EXIST-MAP
+  neighbor BACKUP weight 10
+  neighbor BACKUP prefix-list LAN out
+  neighbor BACKUP maximum-prefix 100 10 restart 1
+  neighbor {{ TUNNEL_3000_HUB_1_IP }} activate
+  neighbor {{ TUNNEL_4000_HUB_1_IP }} activate
+  maximum-paths 2
+ exit-address-family
+!
+ip forward-protocol nd
+no ip http server
+no ip http secure-server
+!
+ip bgp-community new-format
+!
+ip route vrf Front {{ TUNNEL_4000_HUB_1_NBMA }} 255.255.255.255 GigabitEthernet0 {{ GIG_0_DEFAULT_GW }}
+ip route vrf Front_Cellular {{ TUNNEL_3000_HUB_1_NBMA }} 255.255.255.255 Cellular0
+ip tacacs source-interface Vlan10
+ip ssh rsa keypair-name SSH
+ip ssh version 2
+ip scp server enable
+!
+object-group service DMVPN 
+ udp eq isakmp
+ udp eq non500-isakmp
+ esp
+ tcp eq 22
+ udp eq 0
+!
+object-group network HUB 
+ host 217.118.86.28
+ host {{ TUNNEL_3000_HUB_1_NBMA }}
+ host {{ TUNNEL_4000_HUB_1_NBMA }}
+!
+ip access-list extended OUTSIDE_IN
+ remark ### DMVNP
+ permit object-group DMVPN object-group HUB any
+ remark ### ICMP
+ permit icmp any any unreachable
+ permit icmp any any echo
+ permit icmp any any echo-reply
+!
+ip prefix-list LAN seq 5 permit {{ VLAN_10_NETWORK }}/{{ VLAN_10_MASK_LENGTH }}
+!
+ip prefix-list LOCAL_HUB seq 5 permit {{ TUNNEL_4000_HUB_1_LOOPBACK }}/32
+ip sla responder
+logging monitor informational
+logging trap notifications
+logging source-interface Vlan10
+logging host 192.168.192.128
+logging host 172.21.205.104
+logging host 192.168.182.173
