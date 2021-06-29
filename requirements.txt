@@ -1,0 +1,12 @@
+flake8
+black
+flake8-blind-except 
+flake8-builtins 
+flake8-logging-format 
+flake8-commas 
+flake8-print 
+pep8-naming 
+flake8-cognitive-complexity 
+flake8-variables-names 
+flake8-comprehensions 
+flake8-eradicate
