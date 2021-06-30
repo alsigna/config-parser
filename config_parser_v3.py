@@ -130,8 +130,6 @@ class ConfigTree:
         sub_section = "\n".join(sub_lines)
         child.build_tree(sub_section)
 
-    # =-=-=-=-=-=-=-=-=
-
     def __compare__(self, self_attr: dict, obj: object, obj_attr: dict) -> bool:
         re_str_self = self.format_config_line(mode="re")
         re_str_obj = obj.format_config_line(mode="re")
@@ -183,7 +181,7 @@ class ConfigTree:
     def full_path(self):
         if self.parent is not None:
             parent = ConfigTree(priority=self.priority)
-            parent.attr = self.parent.attr
+            parent.attr = self.parent.attr.copy()
             parent.config_line = self.parent.config_line
             parent.child.append(self)
             parent.parent = self.parent.parent
@@ -194,6 +192,8 @@ class ConfigTree:
 
     def merge(self, obj):
         if self == obj and len(self.child) == 0 and len(obj.child) == 0 and self.priority < obj.priority:
+            obj.attr = self.attr.copy()
+            obj.parse_attr(self.format_config_line(mode="re"))
             self.attr = obj.attr.copy()
 
         for obj_child in obj.child:
@@ -270,26 +270,31 @@ class ConfigTree:
     # return result
 
 
-def get_tree(config, template=None, priority=100):
-    with open(config, "r") as file:
-        cfg_lines = file.read().strip()
-    cfg = ConfigTree(priority=priority)
-    cfg.build_tree(cfg_lines)
-    if template is not None:
-        with open(template, "r") as file:
-            tmpl_lines = file.read().strip()
-        tmpl = ConfigTree()
-        tmpl.build_tree(tmpl_lines)
-        cfg.add_template(tmpl)
-    return cfg
+# def get_tree(config, template=None, priority=100):
+#     with open(config, "r") as file:
+#         cfg_lines = file.read().strip()
+#     cfg = ConfigTree(priority=priority)
+#     cfg.build_tree(cfg_lines)
+#     if template is not None:
+#         with open(template, "r") as file:
+#             tmpl_lines = file.read().strip()
+#         tmpl = ConfigTree()
+#         tmpl.build_tree(tmpl_lines)
+#         cfg.add_template(tmpl)
+#     return cfg
 
 
 cfg1 = ConfigTree(
     config_file="cfg1.txt",
     template_file="cfg.j2",
+)
+cfg2 = ConfigTree(
+    config_file="cfg2.txt",
+    # template_file="cfg.j2",
     priority=101,
 )
-print(cfg1.get_config(raw=True))
+cfg1.merge(cfg2)
+print(cfg1.get_config())
 # cfg1 = get_tree(
 #     config="cfg1.txt",
 #     # template="cfg.j2",
