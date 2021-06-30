@@ -1,10 +1,11 @@
 interface Vlan10
+ ip address 1.1.1.1 255.255.255.0
  load-interval 10
- no shutdown vlan10
+ no shutdown
  description -= vlan10 =-
 !
 interface Vlan11
  load-interval 11
- no shutdown vlan11
+ no shutdown
  description -= Vlan11 =-
 !

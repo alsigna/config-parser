@@ -211,8 +211,43 @@ class ConfigTree:
         for child in filter_result:
             child_full = child.full_path()
             root.merge(child_full)
-
         return root
+
+    def __diff(self, obj):
+        result = []
+        for self_child in self.child:
+            if self_child not in obj.child:
+                result.append(self_child)
+                # print(f"{str(self_child)} = net")
+            else:
+                if len(self_child.child) != 0:
+                    result.extend(self_child.__diff(obj.child[obj.child.index(self_child)]))
+        return result
+
+    def diff(self, obj):
+        root = ConfigTree()
+        diff_result = []
+        diff_result.extend(self.__diff(obj))
+        for child in diff_result:
+            child_full = child.full_path()
+            root.merge(child_full)
+        return root
+        # for self_child in self.child:
+        #     for obj_indx, obj_child in enumerate(obj.child):
+        #         if self_child == obj_child:
+        #             self_child.diff(obj.child.pop(obj_indx))
+        # if self == obj:
+        #     print(f"{str(self)} = da")
+        # else:
+        #     print(f"{str(self)} = net")
+
+        # for child in self.child:
+        #     r = re.search(rf"{string.strip()}", str(child).strip())
+        #     if r:
+        #         result.append(child)
+        #     if len(child.child) != 0:
+        #         result.extend(child.__filter(string))
+        # return result
 
 
 def get_tree(config, template=None, priority=100):
@@ -243,21 +278,36 @@ template = get_tree("cfg.j2")
 
 cfg1 = get_tree(
     config="cfg1.txt",
-    template="cfg.j2",
+    # template="cfg.j2",
 )
 cfg2 = get_tree(
     config="cfg2.txt",
-    template="cfg.j2",
+    # template="cfg.j2",
     priority=101,
+)
+tmpl = get_tree(
+    config="cfg.j2",
+    # template="cfg.j2",
+    # priority=101,
 )
 full = get_tree("full.txt")
 
 print("~" * 20 + "cfg origin" + "~" * 20)
 print(cfg1.get_config())
 
-print("~" * 20 + "merged" + "~" * 20)
-cfg1.merge(cfg2)
-print(cfg1.get_config())
+# print("~" * 20 + "replace" + "~" * 20)
+# cfg1.replace(cfg2)
+# print(cfg1.get_config())
+
+# print("~" * 20 + "merged" + "~" * 20)
+# cfg1.merge(cfg2)
+# print(cfg1.get_config())
+
+print("~" * 20 + "diff" + "~" * 20)
+print(cfg1.diff(tmpl).get_config())
+print("~" * 20)
+print(tmpl.diff(cfg1).get_config())
+# print(f2.get_config())
 
 # print("~" * 50 + "full" + "~" * 20)
 # print(full.get_config())
@@ -265,10 +315,6 @@ print(cfg1.get_config())
 # print("~" * 20 + "filter" + "~" * 20)
 # f = full.filter("interface Tunnel")
 # print(f.get_config(symbol="| "))
-
-print("~" * 20 + "replace" + "~" * 20)
-cfg1.merge(cfg2)
-print(cfg1.get_config())
 
 
 # print("~" * 20 + "delete" + "~" * 20)
