@@ -8,3 +8,7 @@ interface Vlan11
  load-interval {{ LOAD }}
  no shutdown
 !
+router bgp {{ BGP_ASN }}
+  neig {{ PEER_IP }}
+  address-family ipv4 un
+    neig {{ PEER_IP }} activate

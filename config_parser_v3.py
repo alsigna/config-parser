@@ -157,14 +157,29 @@ class ConfigTree:
             config_list.append(child.get_config(symbol, symbol_count + 1, raw))
         return "\n".join(config_list)
 
+    def copy_to(self, obj):
+        new_obj = ConfigTree(
+            config_line=self.config_line,
+            parent=obj,
+            priority=self.priority,
+        )
+        # new_obj.child = self.child.copy()
+        new_obj.attr = self.attr.copy()
+        # if obj.parent is not None:
+        #     obj.parent.child.append(new_obj)
+        for child in self.child:
+            child.copy_to(new_obj)
+        # return new_obj
+
     def full_path(self):
         if self.parent is not None:
             parent = ConfigTree(priority=self.priority)
-            parent.attr = self.parent.attr.copy()
-            parent.config_line = self.parent.config_line
-            parent.child.append(self)
-            parent.parent = self.parent.parent
-            self.parent = parent
+            self.copy_to(parent)
+            # parent.attr = self.parent.attr.copy()
+            # parent.config_line = self.parent.config_line
+            # parent.child.append(self)
+            # parent.parent = self.parent.parent
+            # self.parent = parent
             return parent.full_path()
         else:
             return self
@@ -187,82 +202,64 @@ class ConfigTree:
     def replace(self, obj):
         for obj_child in obj.child:
             for indx, self_child in enumerate(self.child):
-                # if obj_child == self_child:
                 if obj_child.eq(self_child):
                     self_child.parent = None
                     obj_child.parent = self
                     self.child.pop(indx)
                     self.child.insert(indx, obj_child)
 
-    def __filter(self, string):
+    def __filter(self, string, no_child):
         result = []
         for child in self.child:
             r = re.search(rf"{string.strip()}", str(child).strip())
             if r:
                 result.append(child)
+                if no_child:
+                    child.child = []
+                    return result
             if len(child.child) != 0:
-                result.extend(child.__filter(string))
+                result.extend(child.__filter(string, no_child))
         return result
 
-    def filter(self, string):
-        root = ConfigTree()
+    def filter(self, string, no_child=False):
+        root = ConfigTree(priority=self.priority)
         filter_result = []
-        filter_result.extend(self.__filter(string))
+        filter_result.extend(self.__filter(string, no_child=no_child))
         for child in filter_result:
+            # child_copy = child.copy()
             child_full = child.full_path()
             root.merge(child_full)
         return root
 
-    # def __diff(self, obj):
-    #     result = []
-    #     for self_child in self.child:
-    #         if self_child not in obj.child:
-    #             result.append(self_child)
-    #             # print(f"{str(self_child)} = net")
-    #         else:
-    #             if len(self_child.child) != 0:
-    #                 result.extend(self_child.__diff(obj.child[obj.child.index(self_child)]))
-    #     return result
-
-    # def diff(self, obj):
-    #     root = ConfigTree()
-    #     diff_result = []
-    #     diff_result.extend(self.__diff(obj))
-    #     for child in diff_result:
-    #         child_full = child.full_path()
-    #         root.merge(child_full)
-    #     return root
-    # for self_child in self.child:
-    #     for obj_indx, obj_child in enumerate(obj.child):
-    #         if self_child == obj_child:
-    #             self_child.diff(obj.child.pop(obj_indx))
-    # if self == obj:
-    #     print(f"{str(self)} = da")
-    # else:
-    #     print(f"{str(self)} = net")
-
-    # for child in self.child:
-    #     r = re.search(rf"{string.strip()}", str(child).strip())
-    #     if r:
-    #         result.append(child)
-    #     if len(child.child) != 0:
-    #         result.extend(child.__filter(string))
-    # return result
+    def delete(self, obj):
+        for obj_child in obj.child:
+            for self_child in self.child:
+                if self_child.eq(obj_child):
+                    if len(obj_child.child) != 0:
+                        self_child.delete(obj_child)
+                    else:
+                        print(self_child)
 
 
 cfg1 = ConfigTree(
     config_file="cfg1.txt",
     template_file="cfg.j2",
+    priority=101,
 )
 cfg2 = ConfigTree(
     config_file="cfg2.txt",
     # template_file="cfg.j2",
-    priority=99,
+    priority=102,
 )
 # cfg1.merge(cfg2)
-cfg1.replace(cfg2)
+# cfg1.replace(cfg2)
+# print("~" * 20)
+# print(cfg1.get_config())
+# print("~" * 20)
+to_del = cfg1.filter("router bgp", no_child=True)
+
+print(to_del.get_config())
+print("~" * 20)
 print(cfg1.get_config())
-# cfg1 = get_tree(
-#     config="cfg1.txt",
-#     # template="cfg.j2",
-# )
+# print("~" * 20)
+# print(cfg1.get_config())

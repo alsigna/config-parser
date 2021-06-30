@@ -13,7 +13,7 @@ access-list 1 permit 172.25.21.102
 access-list 1 permit 172.25.21.106
 access-list 1 permit 172.25.21.107
 !
-router bgp 123
-  neig 111.222.333.444
+router bgp 12345
+  neig 192.168.1.2
   address-family ipv4 un
-    neig 111.222.333.444 activate
+    neig 192.168.1.2 activate
