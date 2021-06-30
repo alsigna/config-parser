@@ -1,27 +1,6 @@
 import re
 
 
-# def get_tree(config, template=None, priority=100):
-#     with open(config, "r") as file:
-#         cfg_lines = file.read().strip()
-#     cfg = ConfigTree(priority=priority)
-#     cfg.build_tree(cfg_lines)
-#     if template is not None:
-#         with open(template, "r") as file:
-#             tmpl_lines = file.read().strip()
-#         tmpl = ConfigTree()
-#         tmpl.build_tree(tmpl_lines)
-#         cfg.add_template(tmpl)
-#     return cfg
-
-
-# cfg1 = ConfigTree(
-#     config_file="cfg1.txt",
-#     template_file="cfg.j2",
-#     priority=101,
-# )
-
-
 class ConfigTree:
     def __init__(
         self,
@@ -207,31 +186,32 @@ class ConfigTree:
 
     def replace(self, obj):
         for obj_child in obj.child:
-            for cnt, self_child in enumerate(self.child):
-                if obj_child == self_child:
+            for indx, self_child in enumerate(self.child):
+                # if obj_child == self_child:
+                if obj_child.eq(self_child):
                     self_child.parent = None
                     obj_child.parent = self
-                    self.child.pop(cnt)
-                    self.child.insert(cnt, obj_child)
+                    self.child.pop(indx)
+                    self.child.insert(indx, obj_child)
 
-    # def __filter(self, string):
-    #     result = []
-    #     for child in self.child:
-    #         r = re.search(rf"{string.strip()}", str(child).strip())
-    #         if r:
-    #             result.append(child)
-    #         if len(child.child) != 0:
-    #             result.extend(child.__filter(string))
-    #     return result
+    def __filter(self, string):
+        result = []
+        for child in self.child:
+            r = re.search(rf"{string.strip()}", str(child).strip())
+            if r:
+                result.append(child)
+            if len(child.child) != 0:
+                result.extend(child.__filter(string))
+        return result
 
-    # def filter(self, string):
-    #     root = ConfigTree()
-    #     filter_result = []
-    #     filter_result.extend(self.__filter(string))
-    #     for child in filter_result:
-    #         child_full = child.full_path()
-    #         root.merge(child_full)
-    #     return root
+    def filter(self, string):
+        root = ConfigTree()
+        filter_result = []
+        filter_result.extend(self.__filter(string))
+        for child in filter_result:
+            child_full = child.full_path()
+            root.merge(child_full)
+        return root
 
     # def __diff(self, obj):
     #     result = []
@@ -270,20 +250,6 @@ class ConfigTree:
     # return result
 
 
-# def get_tree(config, template=None, priority=100):
-#     with open(config, "r") as file:
-#         cfg_lines = file.read().strip()
-#     cfg = ConfigTree(priority=priority)
-#     cfg.build_tree(cfg_lines)
-#     if template is not None:
-#         with open(template, "r") as file:
-#             tmpl_lines = file.read().strip()
-#         tmpl = ConfigTree()
-#         tmpl.build_tree(tmpl_lines)
-#         cfg.add_template(tmpl)
-#     return cfg
-
-
 cfg1 = ConfigTree(
     config_file="cfg1.txt",
     template_file="cfg.j2",
@@ -291,9 +257,10 @@ cfg1 = ConfigTree(
 cfg2 = ConfigTree(
     config_file="cfg2.txt",
     # template_file="cfg.j2",
-    priority=101,
+    priority=99,
 )
-cfg1.merge(cfg2)
+# cfg1.merge(cfg2)
+cfg1.replace(cfg2)
 print(cfg1.get_config())
 # cfg1 = get_tree(
 #     config="cfg1.txt",
