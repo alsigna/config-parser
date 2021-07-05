@@ -1,19 +1,9 @@
 interface Vlan10
- ip address 1.1.1.1 255.255.255.0
+ ip address 1.1.1.2 255.255.255.0
  load-interval 10
  no shutdown
  description -= vlan10 =-
 !
 interface Vlan11
- load-interval 11
- no shutdown
- description -= Vlan11 =-
+ ip address 1.11.1.2 255.255.255.0
 !
-access-list 1 permit 172.25.21.102
-access-list 1 permit 172.25.21.106
-access-list 1 permit 172.25.21.107
-!
-router bgp 12345
-  neig 192.168.1.2
-  address-family ipv4 un
-    neig 192.168.1.2 activate

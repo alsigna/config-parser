@@ -73,11 +73,12 @@ class ConfigTree:
     def assigne_template(self, template):
         for template_child in template.child:
             for self_child in self.child:
-                if self_child == template_child:
+                if self_child == template_child and len(self_child.attr) == 0:
                     self_child.attr = template_child.attr.copy()
                     self_child.parse_attr(template_child.format_config_line(mode="re"))
                     self_child.config_line = template_child.config_line
                     self_child.assigne_template(template_child)
+                    break
 
     def get_attr(self, config_line) -> dict:
         attr_dict = {}
@@ -112,6 +113,9 @@ class ConfigTree:
     def __compare__(self, self_attr: dict, obj: object, obj_attr: dict) -> bool:
         re_str_self = self.format_config_line(mode="re")
         re_str_obj = obj.format_config_line(mode="re")
+
+        if re_str_self == re_str_obj:
+            return True
 
         match_result_self = re.match(rf"^{re_str_self.format(**self_attr)}$", str(obj).strip())
         match_result_obj = re.match(rf"^{re_str_obj.format(**obj_attr)}$", str(self).strip())
@@ -158,15 +162,15 @@ class ConfigTree:
         return "\n".join(config_list)
 
     def copy(self, with_child=True, parent=None):
-        new_obj = self._copy(with_child=with_child, parent=parent)
+        new_obj = self.__copy(with_child=with_child, parent=parent)
         root = new_obj
         while root.parent is not None:
             root = root.parent
         return root
 
-    def _copy(self, with_child, parent):
+    def __copy(self, with_child, parent):
         if self.parent is not None and parent is None:
-            parent = self.parent._copy(with_child=False, parent=None)
+            parent = self.parent.__copy(with_child=False, parent=None)
         new_obj = ConfigTree(
             config_line=self.config_line,
             parent=parent,
@@ -176,7 +180,7 @@ class ConfigTree:
         if not with_child:
             return new_obj
         for child in self.child:
-            _ = child._copy(with_child=with_child, parent=new_obj)
+            _ = child.__copy(with_child=with_child, parent=new_obj)
         return new_obj
 
     def replace(self, obj):
@@ -185,7 +189,7 @@ class ConfigTree:
                 if obj_child.eq(self_child):
                     self_child.parent = None
                     self.child.pop(indx)
-                    new_obj = obj_child._copy(with_child=True, parent=None)
+                    new_obj = obj_child.__copy(with_child=True, parent=None)
                     new_obj.parent = self
                     self.child.insert(indx, new_obj)
                     # obj_child.parent = self
@@ -238,12 +242,45 @@ class ConfigTree:
 
     def delete(self, obj):
         for obj_child in obj.child:
-            for self_child in self.child:
+            for indx, self_child in enumerate(self.child):
                 if self_child.eq(obj_child):
                     if len(obj_child.child) != 0:
                         self_child.delete(obj_child)
-                    else:
-                        print(self_child)
+                    # else:
+                    # if len(self.child) != 0:
+                    if len(self_child.child) == 0:
+                        # print("del " + str(self_child))
+                        self_child.parent = None
+                        self.child.pop(indx)
+
+    def __intersection(self, obj):
+        result = []
+        for obj_child in obj.child:
+            for self_child in self.child:
+                if self_child.eq(obj_child):
+                    if len(self_child.child) != 0:
+                        result.extend(self_child.__intersection(obj_child))
+
+                    result.append(self_child.copy(with_child=False))
+
+        return result
+
+    def intersection(self, obj):
+        inter = ConfigTree(priority=self.priority)
+        inter_result = []
+        inter_result.extend(self.__intersection(obj))
+        for child in inter_result:
+            inter.merge(child)
+        return inter
+
+    def difference(self, obj):
+        diff = self.copy()
+        inter = self.intersection(obj)
+        # diff_result = []
+        # diff_result.extend(self.__intersection(obj))
+        # for child in diff_result:
+        diff.delete(inter)
+        return diff
 
 
 cfg1 = ConfigTree(
@@ -253,52 +290,64 @@ cfg1 = ConfigTree(
 )
 cfg2 = ConfigTree(
     config_file="cfg2.txt",
-    priority=102,
+    priority=99,
 )
+
+
+# template = ConfigTree(
+#     config_file="full.txt",
+# )
+# config = ConfigTree(
+#     config_file="cs-chlb-dz91-oo-1.txt",
+# )
 
 # # test 01: config
 # print("~" * 20 + "cfg1")
-# print(cfg1.config(raw=False))
+# print(cfg1.config(raw=True))
 # print("~" * 20 + "cfg2")
 # print(cfg2.config(raw=False))
 
 # # test 02: merge
 # cfg1.merge(cfg2)
 # print("~" * 20 + "cfg1")
-# print(cfg1.config(raw=False))
+# print(cfg1.config(raw=True))
 # print("~" * 20 + "cfg2")
-# print(cfg2.config(raw=False))
+# print(cfg2.config(raw=True))
 
 # test 03: replace
-print("~" * 20 + "cfg1")
-print(cfg1.config(raw=True))
 cfg1.replace(cfg2)
 print("~" * 20 + "cfg1")
 print(cfg1.config(raw=True))
 print("~" * 20 + "cfg2")
 print(cfg2.config(raw=False))
 
+# # test 04: copy
+# cp = cfg1.child[5].copy()
+# print(cp.config())
 
-# cfg1.replace(cfg2)
-# print("~" * 20)
-# print(cfg1.get_config())
-# print("~" * 20)
-# to_del = cfg1.filter("router bgp", no_child=True)
+# # test 05: filter
+# f = cfg1.filter("address").filter("router")
+# print(f.config())
 
-# print(to_del.get_config())
-# print("~" * 20)
-# print(cfg1.get_config())
-# print("~" * 20)
-# print(cfg1.get_config())
+# # test 06: delete
+# print("~" * 20 + "filtered")
+# # f = cfg1.filter("^interface Vlan10")
+# f = cfg1.child[0].copy()
+# print(f.config())
+# print("~" * 20 + "cfg1")
+# cfg1.delete(f)
+# print(cfg1.config(raw=True))
 
+# # test 07: intersection
+# print("~" * 20 + "intersection")
+# f = cfg1.intersection(cfg2)
+# print(f.config(raw=False))
 
-# print("~" * 20)
-# # f1 = cfg1.child[5].child[1].copy()
-# # print(f1.get_config())
-# # print("~" * 20)
-# # print(cfg1.get_config())
-# # print("~" * 20)
-# f1 = cfg1.filter("address", with_child=False)
-# print(cfg1.get_config())
-# print("~" * 20)
-# print(f1.get_config())
+# # test 08: difference
+# print("~" * 20 + "difference template from config")
+# f = template.difference(config)
+# print(f.config(raw=False))
+
+# print("~" * 20 + "difference config from template")
+# f = config.difference(template)
+# print(f.config(raw=False))

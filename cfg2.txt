@@ -1,7 +1,6 @@
 interface Vlan10
- load-interval 100
- new config line
+ ip address dhcp
+ load-interval 10
+ no shutdown
+ description -= vlan10 =-
 !
-router bgp 12345
-  address-family vpnv4 un
-    neig 1.2.3.4 deacti
