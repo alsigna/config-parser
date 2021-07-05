@@ -157,25 +157,11 @@ class ConfigTree:
             config_list.append(child.get_config(symbol, symbol_count + 1, raw))
         return "\n".join(config_list)
 
-    def copy_to(self, obj):
-        new_obj = ConfigTree(
-            config_line=self.config_line,
-            parent=obj,
-            priority=self.priority,
-        )
-        # new_obj.child = self.child.copy()
-        new_obj.attr = self.attr.copy()
-        # if obj.parent is not None:
-        #     obj.parent.child.append(new_obj)
-        for child in self.child:
-            child.copy_to(new_obj)
-        # return new_obj
-
     def copy(self, with_child=True, parent=None):
         new_obj = self._copy(with_child=with_child, parent=parent)
         root = new_obj
         while root.parent is not None:
-            root = root.parent
+            root = root.parenst
         return root
         # pass
 
@@ -236,12 +222,13 @@ class ConfigTree:
         for child in self.child:
             r = re.search(rf"{string.strip()}", str(child).strip())
             if r:
+                result.append(child.copy())
                 # result.append(child)
-                new_child = child.full_path()
+                # new_child = child.full_path()
                 # if no_child:
                 #     new_child.child = []
                 # return result
-                result.append(new_child)
+                # result.append(new_child)
             if len(child.child) != 0 and not (r and no_child):
                 # if len(child.child) != 0:
                 result.extend(child.__filter(string, no_child))
@@ -296,7 +283,12 @@ cfg1 = ConfigTree(
 
 
 print("~" * 20)
-f1 = cfg1.child[5].child[1].copy()
+# f1 = cfg1.child[5].child[1].copy()
+# print(f1.get_config())
+# print("~" * 20)
+# print(cfg1.get_config())
+# print("~" * 20)
+f1 = cfg1.filter("address")
 print(f1.get_config())
 print("~" * 20)
 print(cfg1.get_config())
