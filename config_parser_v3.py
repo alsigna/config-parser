@@ -1,15 +1,16 @@
+from __future__ import annotations
 import re
 
 
 class ConfigTree:
     def __init__(
         self,
-        config_line="",
-        config_file=None,
-        config_text=None,
-        template_file=None,
-        parent=None,
-        priority=100,
+        config_line: str = "",
+        config_file: str = None,
+        config_text: str = None,
+        template_file: str = None,
+        parent: ConfigTree = None,
+        priority: int = 100,
     ) -> None:
         self.parent = parent
         self.child = []
@@ -30,14 +31,14 @@ class ConfigTree:
                 template_text = file_.read().strip()
             self.assigne_template(ConfigTree(config_text=template_text))
 
-    def __str__(self) -> str:
+    def __str__(self: ConfigTree) -> str:
         return self.format_config_line(mode="full")
 
-    def __repr__(self) -> str:
+    def __repr__(self: ConfigTree) -> str:
         line = self.format_config_line(mode="full")
         return f"({id(self)}) {line}"
 
-    def format_config_line(self, mode="") -> str:
+    def format_config_line(self: ConfigTree, mode: str = "") -> str:
         if "{" not in self.config_line and "}" not in self.config_line:
             return self.config_line or "root"
         ccb = "<ClosingCurlyBracket>"
@@ -61,7 +62,7 @@ class ConfigTree:
         else:
             return cmd
 
-    def parse_attr(self, template) -> None:
+    def parse_attr(self: ConfigTree, template: str) -> None:
         re_attr = {}
         for attr in self.attr.keys():
             re_attr.setdefault(attr, r"\S+")
@@ -70,7 +71,7 @@ class ConfigTree:
             re_attr_copy[attr] = r"(\S+)"
             self.attr[attr] = re.findall(rf"^{template.format(**re_attr_copy)}", self.config_line)[0]
 
-    def assigne_template(self, template):
+    def assigne_template(self: ConfigTree, template: ConfigTree) -> None:
         for template_child in template.child:
             for self_child in self.child:
                 if self_child == template_child and len(self_child.attr) == 0:
@@ -80,19 +81,19 @@ class ConfigTree:
                     self_child.assigne_template(template_child)
                     break
 
-    def get_attr(self, config_line) -> dict:
+    def get_attr(self: ConfigTree, config_line: str) -> dict:
         attr_dict = {}
         attr_list = re.findall(r"{{ \S+ }}", config_line)
         for attr in attr_list:
             attr_dict.setdefault(attr[2:-2].strip(), attr)
         return attr_dict
 
-    def build_tree(self, config_lines):
+    def build_tree(self: ConfigTree, config_lines: str) -> None:
         sections = re.split(r"\n(?=\S)", config_lines)
         for section in sections:
             self.build_sub_tree(section, self)
 
-    def build_sub_tree(self, section, parent) -> None:
+    def build_sub_tree(self: ConfigTree, section: str, parent: ConfigTree) -> None:
         lines = section.split("\n")
         if len(lines) == 0:
             return
@@ -110,7 +111,7 @@ class ConfigTree:
         sub_section = "\n".join(sub_lines)
         child.build_tree(sub_section)
 
-    def __compare__(self, self_attr: dict, obj: object, obj_attr: dict) -> bool:
+    def __compare__(self: ConfigTree, self_attr: dict, obj: ConfigTree, obj_attr: dict) -> bool:
         re_str_self = self.format_config_line(mode="re")
         re_str_obj = obj.format_config_line(mode="re")
 
@@ -125,7 +126,7 @@ class ConfigTree:
         else:
             return False
 
-    def eq(self, obj: object) -> bool:
+    def eq(self: ConfigTree, obj: ConfigTree) -> bool:
         re_attr_self = self.attr.copy()
         re_attr_obj = obj.attr.copy()
 
@@ -138,7 +139,7 @@ class ConfigTree:
 
         return self.__compare__(re_attr_self, obj, re_attr_obj)
 
-    def __eq__(self, obj: object) -> bool:
+    def __eq__(self: ConfigTree, obj: ConfigTree) -> bool:
         re_attr_self = {}
         re_attr_obj = {}
 
@@ -149,7 +150,7 @@ class ConfigTree:
 
         return self.__compare__(re_attr_self, obj, re_attr_obj)
 
-    def config(self, symbol=" ", symbol_count=-1, raw=False) -> str:
+    def config(self: ConfigTree, symbol: str = " ", symbol_count: int = -1, raw: bool = False) -> str:
         if self.parent is None:
             config_list = []
         else:
@@ -161,14 +162,13 @@ class ConfigTree:
             config_list.append(child.config(symbol, symbol_count + 1, raw))
         return "\n".join(config_list)
 
-    def copy(self, with_child=True, parent=None):
-        new_obj = self.__copy(with_child=with_child, parent=parent)
-        root = new_obj
+    def copy(self: ConfigTree, with_child: bool = True, parent: ConfigTree = None) -> ConfigTree:
+        root = self.__copy(with_child=with_child, parent=parent)
         while root.parent is not None:
             root = root.parent
         return root
 
-    def __copy(self, with_child, parent):
+    def __copy(self: ConfigTree, with_child: bool, parent: ConfigTree) -> ConfigTree:
         if self.parent is not None and parent is None:
             parent = self.parent.__copy(with_child=False, parent=None)
         new_obj = ConfigTree(
@@ -183,7 +183,7 @@ class ConfigTree:
             _ = child.__copy(with_child=with_child, parent=new_obj)
         return new_obj
 
-    def replace(self, obj):
+    def replace(self: ConfigTree, obj: ConfigTree) -> None:
         for obj_child in obj.child:
             for indx, self_child in enumerate(self.child):
                 if obj_child.eq(self_child) and obj_child.priority > self.priority:
@@ -192,22 +192,20 @@ class ConfigTree:
                     new_obj = obj_child.__copy(with_child=True, parent=None)
                     new_obj.parent = self
                     self.child.insert(indx, new_obj)
-                    # obj_child.parent = self
-                    # self.child.insert(indx, obj_child)
 
-    def full_path(self):
-        if self.parent is not None:
-            parent = ConfigTree(priority=self.priority)
-            parent.attr = self.parent.attr.copy()
-            parent.config_line = self.parent.config_line
-            parent.child.append(self)
-            parent.parent = self.parent.parent
-            self.parent = parent
-            return parent.full_path()
-        else:
-            return self
+    # def full_path(self: ConfigTree) -> ConfigTree:
+    #     if self.parent is not None:
+    #         parent = ConfigTree(priority=self.priority)
+    #         parent.attr = self.parent.attr.copy()
+    #         parent.config_line = self.parent.config_line
+    #         parent.child.append(self)
+    #         parent.parent = self.parent.parent
+    #         self.parent = parent
+    #         return parent.full_path()
+    #     else:
+    #         return self
 
-    def merge(self, obj):
+    def merge(self: ConfigTree, obj: ConfigTree) -> None:
         if self == obj and len(self.child) == 0 and len(obj.child) == 0 and self.priority < obj.priority:
             obj.attr = self.attr.copy()
             obj.parse_attr(self.format_config_line(mode="re"))
@@ -222,7 +220,7 @@ class ConfigTree:
                     if self_child == obj_child:
                         self_child.merge(obj_child)
 
-    def __filter(self, string, with_child):
+    def __filter(self: ConfigTree, string: str, with_child: bool) -> list:
         result = []
         for child in self.child:
             r = re.search(rf"{string.strip()}", str(child).strip())
@@ -232,7 +230,7 @@ class ConfigTree:
                 result.extend(child.__filter(string, with_child))
         return result
 
-    def filter(self, string, with_child=True):
+    def filter(self: ConfigTree, string: str, with_child: bool = True) -> ConfigTree:
         root = ConfigTree(priority=self.priority)
         filter_result = []
         filter_result.extend(self.__filter(string, with_child=with_child))
@@ -240,7 +238,7 @@ class ConfigTree:
             root.merge(child)
         return root
 
-    def delete(self, obj):
+    def delete(self: ConfigTree, obj: ConfigTree) -> None:
         for obj_child in obj.child:
             for indx, self_child in enumerate(self.child):
                 if self_child.eq(obj_child):
@@ -253,7 +251,7 @@ class ConfigTree:
                         self_child.parent = None
                         self.child.pop(indx)
 
-    def __intersection(self, obj):
+    def __intersection(self: ConfigTree, obj: ConfigTree) -> list:
         result = []
         for obj_child in obj.child:
             for self_child in self.child:
@@ -265,7 +263,7 @@ class ConfigTree:
 
         return result
 
-    def intersection(self, obj):
+    def intersection(self: ConfigTree, obj: ConfigTree) -> ConfigTree:
         inter = ConfigTree(priority=self.priority)
         inter_result = []
         inter_result.extend(self.__intersection(obj))
@@ -273,12 +271,9 @@ class ConfigTree:
             inter.merge(child)
         return inter
 
-    def difference(self, obj):
+    def difference(self: ConfigTree, obj: ConfigTree) -> ConfigTree:
         diff = self.copy()
         inter = self.intersection(obj)
-        # diff_result = []
-        # diff_result.extend(self.__intersection(obj))
-        # for child in diff_result:
         diff.delete(inter)
         return diff
 
@@ -294,12 +289,12 @@ cfg2 = ConfigTree(
 )
 
 
-# template = ConfigTree(
-#     config_file="full.txt",
-# )
-# config = ConfigTree(
-#     config_file="cs-chlb-dz91-oo-1.txt",
-# )
+template = ConfigTree(
+    config_file="full.txt",
+)
+config = ConfigTree(
+    config_file="cs-chlb-dz91-oo-1.txt",
+)
 
 # # test 01: config
 # print("~" * 20 + "cfg1")
@@ -314,15 +309,15 @@ cfg2 = ConfigTree(
 # print("~" * 20 + "cfg2")
 # print(cfg2.config(raw=True))
 
-# test 03: replace
-cfg1.replace(cfg2)
-print("~" * 20 + "cfg1")
-print(cfg1.config(raw=False))
-print("~" * 20 + "cfg2")
-print(cfg2.config(raw=False))
+# # test 03: replace
+# cfg1.replace(cfg2)
+# print("~" * 20 + "cfg1")
+# print(cfg1.config(raw=False))
+# print("~" * 20 + "cfg2")
+# print(cfg2.config(raw=False))
 
 # # test 04: copy
-# cp = cfg1.child[5].copy()
+# cp = cfg1.child[1].copy()
 # print(cp.config())
 
 # # test 05: filter
@@ -338,10 +333,10 @@ print(cfg2.config(raw=False))
 # cfg1.delete(f)
 # print(cfg1.config(raw=True))
 
-# # test 07: intersection
-# print("~" * 20 + "intersection")
-# f = cfg1.intersection(cfg2)
-# print(f.config(raw=False))
+# test 07: intersection
+print("~" * 20 + "intersection")
+f = config.intersection(template)
+print(f.config(raw=False))
 
 # # test 08: difference
 # print("~" * 20 + "difference template from config")
