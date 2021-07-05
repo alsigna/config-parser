@@ -186,7 +186,7 @@ class ConfigTree:
     def replace(self, obj):
         for obj_child in obj.child:
             for indx, self_child in enumerate(self.child):
-                if obj_child.eq(self_child):
+                if obj_child.eq(self_child) and obj_child.priority > self.priority:
                     self_child.parent = None
                     self.child.pop(indx)
                     new_obj = obj_child.__copy(with_child=True, parent=None)
@@ -290,7 +290,7 @@ cfg1 = ConfigTree(
 )
 cfg2 = ConfigTree(
     config_file="cfg2.txt",
-    priority=99,
+    priority=102,
 )
 
 
@@ -317,7 +317,7 @@ cfg2 = ConfigTree(
 # test 03: replace
 cfg1.replace(cfg2)
 print("~" * 20 + "cfg1")
-print(cfg1.config(raw=True))
+print(cfg1.config(raw=False))
 print("~" * 20 + "cfg2")
 print(cfg2.config(raw=False))
 
