@@ -8,6 +8,10 @@ interface Vlan11
  load-interval {{ LOAD }}
  no shutdown
 !
+access-list 1 permit {{ HUB_1 }}
+access-list 1 permit {{ HUB_2 }}
+access-list 1 permit 172.25.21.107
+!
 router bgp {{ BGP_ASN }}
   neig {{ PEER_IP }}
   address-family ipv4 un

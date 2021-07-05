@@ -145,7 +145,7 @@ class ConfigTree:
 
         return self.__compare__(re_attr_self, obj, re_attr_obj)
 
-    def get_config(self, symbol=" ", symbol_count=-1, raw=False) -> str:
+    def config(self, symbol=" ", symbol_count=-1, raw=False) -> str:
         if self.parent is None:
             config_list = []
         else:
@@ -154,7 +154,7 @@ class ConfigTree:
             else:
                 config_list = [symbol * symbol_count + str(self)]
         for child in self.child:
-            config_list.append(child.get_config(symbol, symbol_count + 1, raw))
+            config_list.append(child.config(symbol, symbol_count + 1, raw))
         return "\n".join(config_list)
 
     def copy(self, with_child=True, parent=None):
@@ -178,6 +178,18 @@ class ConfigTree:
         for child in self.child:
             _ = child._copy(with_child=with_child, parent=new_obj)
         return new_obj
+
+    def replace(self, obj):
+        for obj_child in obj.child:
+            for indx, self_child in enumerate(self.child):
+                if obj_child.eq(self_child):
+                    self_child.parent = None
+                    self.child.pop(indx)
+                    new_obj = obj_child._copy(with_child=True, parent=None)
+                    new_obj.parent = self
+                    self.child.insert(indx, new_obj)
+                    # obj_child.parent = self
+                    # self.child.insert(indx, obj_child)
 
     def full_path(self):
         if self.parent is not None:
@@ -205,15 +217,6 @@ class ConfigTree:
                 for self_child in self.child:
                     if self_child == obj_child:
                         self_child.merge(obj_child)
-
-    def replace(self, obj):
-        for obj_child in obj.child:
-            for indx, self_child in enumerate(self.child):
-                if obj_child.eq(self_child):
-                    self_child.parent = None
-                    obj_child.parent = self
-                    self.child.pop(indx)
-                    self.child.insert(indx, obj_child)
 
     def __filter(self, string, with_child):
         result = []
@@ -248,12 +251,34 @@ cfg1 = ConfigTree(
     template_file="cfg.j2",
     priority=101,
 )
-# cfg2 = ConfigTree(
-#     config_file="cfg2.txt",
-#     # template_file="cfg.j2",
-#     priority=102,
-# )
+cfg2 = ConfigTree(
+    config_file="cfg2.txt",
+    priority=102,
+)
+
+# # test 01: config
+# print("~" * 20 + "cfg1")
+# print(cfg1.config(raw=False))
+# print("~" * 20 + "cfg2")
+# print(cfg2.config(raw=False))
+
+# # test 02: merge
 # cfg1.merge(cfg2)
+# print("~" * 20 + "cfg1")
+# print(cfg1.config(raw=False))
+# print("~" * 20 + "cfg2")
+# print(cfg2.config(raw=False))
+
+# test 03: replace
+print("~" * 20 + "cfg1")
+print(cfg1.config(raw=True))
+cfg1.replace(cfg2)
+print("~" * 20 + "cfg1")
+print(cfg1.config(raw=True))
+print("~" * 20 + "cfg2")
+print(cfg2.config(raw=False))
+
+
 # cfg1.replace(cfg2)
 # print("~" * 20)
 # print(cfg1.get_config())
@@ -267,13 +292,13 @@ cfg1 = ConfigTree(
 # print(cfg1.get_config())
 
 
-print("~" * 20)
-# f1 = cfg1.child[5].child[1].copy()
-# print(f1.get_config())
 # print("~" * 20)
+# # f1 = cfg1.child[5].child[1].copy()
+# # print(f1.get_config())
+# # print("~" * 20)
+# # print(cfg1.get_config())
+# # print("~" * 20)
+# f1 = cfg1.filter("address", with_child=False)
 # print(cfg1.get_config())
 # print("~" * 20)
-f1 = cfg1.filter("address", with_child=False)
-print(cfg1.get_config())
-print("~" * 20)
-print(f1.get_config())
+# print(f1.get_config())
