@@ -161,7 +161,7 @@ class ConfigTree:
         new_obj = self._copy(with_child=with_child, parent=parent)
         root = new_obj
         while root.parent is not None:
-            root = root.parenst
+            root = root.parent
         return root
 
     def _copy(self, with_child, parent):
@@ -215,20 +215,20 @@ class ConfigTree:
                     self.child.pop(indx)
                     self.child.insert(indx, obj_child)
 
-    def __filter(self, string, no_child):
+    def __filter(self, string, with_child):
         result = []
         for child in self.child:
             r = re.search(rf"{string.strip()}", str(child).strip())
             if r:
-                result.append(child.copy())
-            if len(child.child) != 0 and not (r and no_child):
-                result.extend(child.__filter(string, no_child))
+                result.append(child.copy(with_child=with_child))
+            if len(child.child) != 0 and (not r or with_child):
+                result.extend(child.__filter(string, with_child))
         return result
 
-    def filter(self, string, no_child=False):
+    def filter(self, string, with_child=True):
         root = ConfigTree(priority=self.priority)
         filter_result = []
-        filter_result.extend(self.__filter(string, no_child=no_child))
+        filter_result.extend(self.__filter(string, with_child=with_child))
         for child in filter_result:
             root.merge(child)
         return root
@@ -273,7 +273,7 @@ print("~" * 20)
 # print("~" * 20)
 # print(cfg1.get_config())
 # print("~" * 20)
-f1 = cfg1.filter("address")
-print(f1.get_config())
-print("~" * 20)
+f1 = cfg1.filter("address", with_child=False)
 print(cfg1.get_config())
+print("~" * 20)
+print(f1.get_config())
