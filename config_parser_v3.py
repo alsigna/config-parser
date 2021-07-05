@@ -171,15 +171,38 @@ class ConfigTree:
             child.copy_to(new_obj)
         # return new_obj
 
+    def copy(self, with_child=True, parent=None):
+        new_obj = self._copy(with_child=with_child, parent=parent)
+        root = new_obj
+        while root.parent is not None:
+            root = root.parent
+        return root
+        # pass
+
+    def _copy(self, with_child, parent):
+        if self.parent is not None and parent is None:
+            # parent = self.parent
+            parent = self.parent._copy(with_child=False, parent=None)
+        new_obj = ConfigTree(
+            config_line=self.config_line,
+            parent=parent,
+            priority=self.priority,
+        )
+        new_obj.attr = self.attr.copy()
+        if not with_child:
+            return new_obj
+        for child in self.child:
+            _ = child._copy(with_child=with_child, parent=new_obj)
+        return new_obj
+
     def full_path(self):
         if self.parent is not None:
             parent = ConfigTree(priority=self.priority)
-            self.copy_to(parent)
-            # parent.attr = self.parent.attr.copy()
-            # parent.config_line = self.parent.config_line
-            # parent.child.append(self)
-            # parent.parent = self.parent.parent
-            # self.parent = parent
+            parent.attr = self.parent.attr.copy()
+            parent.config_line = self.parent.config_line
+            parent.child.append(self)
+            parent.parent = self.parent.parent
+            self.parent = parent
             return parent.full_path()
         else:
             return self
@@ -213,11 +236,14 @@ class ConfigTree:
         for child in self.child:
             r = re.search(rf"{string.strip()}", str(child).strip())
             if r:
-                result.append(child)
-                if no_child:
-                    child.child = []
-                    return result
-            if len(child.child) != 0:
+                # result.append(child)
+                new_child = child.full_path()
+                # if no_child:
+                #     new_child.child = []
+                # return result
+                result.append(new_child)
+            if len(child.child) != 0 and not (r and no_child):
+                # if len(child.child) != 0:
                 result.extend(child.__filter(string, no_child))
         return result
 
@@ -226,9 +252,13 @@ class ConfigTree:
         filter_result = []
         filter_result.extend(self.__filter(string, no_child=no_child))
         for child in filter_result:
+            root.merge(child)
+
             # child_copy = child.copy()
-            child_full = child.full_path()
-            root.merge(child_full)
+            # child_full = child.full_path()
+            # root.merge(child_full)
+        # if no_child:
+        #     root.delete_child(string)
         return root
 
     def delete(self, obj):
@@ -246,20 +276,27 @@ cfg1 = ConfigTree(
     template_file="cfg.j2",
     priority=101,
 )
-cfg2 = ConfigTree(
-    config_file="cfg2.txt",
-    # template_file="cfg.j2",
-    priority=102,
-)
+# cfg2 = ConfigTree(
+#     config_file="cfg2.txt",
+#     # template_file="cfg.j2",
+#     priority=102,
+# )
 # cfg1.merge(cfg2)
 # cfg1.replace(cfg2)
 # print("~" * 20)
 # print(cfg1.get_config())
 # print("~" * 20)
-to_del = cfg1.filter("router bgp", no_child=True)
+# to_del = cfg1.filter("router bgp", no_child=True)
 
-print(to_del.get_config())
-print("~" * 20)
-print(cfg1.get_config())
+# print(to_del.get_config())
 # print("~" * 20)
 # print(cfg1.get_config())
+# print("~" * 20)
+# print(cfg1.get_config())
+
+
+print("~" * 20)
+f1 = cfg1.child[5].child[1].copy()
+print(f1.get_config())
+print("~" * 20)
+print(cfg1.get_config())
