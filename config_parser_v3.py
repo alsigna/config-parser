@@ -163,11 +163,9 @@ class ConfigTree:
         while root.parent is not None:
             root = root.parenst
         return root
-        # pass
 
     def _copy(self, with_child, parent):
         if self.parent is not None and parent is None:
-            # parent = self.parent
             parent = self.parent._copy(with_child=False, parent=None)
         new_obj = ConfigTree(
             config_line=self.config_line,
@@ -223,14 +221,7 @@ class ConfigTree:
             r = re.search(rf"{string.strip()}", str(child).strip())
             if r:
                 result.append(child.copy())
-                # result.append(child)
-                # new_child = child.full_path()
-                # if no_child:
-                #     new_child.child = []
-                # return result
-                # result.append(new_child)
             if len(child.child) != 0 and not (r and no_child):
-                # if len(child.child) != 0:
                 result.extend(child.__filter(string, no_child))
         return result
 
@@ -240,12 +231,6 @@ class ConfigTree:
         filter_result.extend(self.__filter(string, no_child=no_child))
         for child in filter_result:
             root.merge(child)
-
-            # child_copy = child.copy()
-            # child_full = child.full_path()
-            # root.merge(child_full)
-        # if no_child:
-        #     root.delete_child(string)
         return root
 
     def delete(self, obj):
