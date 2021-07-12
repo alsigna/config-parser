@@ -1,6 +1,1 @@
-interface Vlan10
- ip address dhcp
- load-interval 10
- no shutdown
- description -= vlan10 =-
-!
+interface Vlan11

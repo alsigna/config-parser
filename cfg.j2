@@ -1,18 +1,1 @@
-interface Vlan10
- ip address {{ IP }} {{ MASK }}
- load-interval {{ LOAD }}
- no shutdown
-!
-interface Vlan11
- ip address {{ IP }} {{ MASK }}
- load-interval {{ LOAD }}
- no shutdown
-!
-access-list 1 permit {{ HUB_1 }}
-access-list 1 permit {{ HUB_2 }}
-access-list 1 permit 172.25.21.107
-!
-router bgp {{ BGP_ASN }}
-  neig {{ PEER_IP }}
-  address-family ipv4 un
-    neig {{ PEER_IP }} activate
+interface {{ VLAN }}

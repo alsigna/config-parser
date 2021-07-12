@@ -72,13 +72,16 @@ class ConfigTree:
             self.attr[attr] = re.findall(rf"^{template.format(**re_attr_copy)}", self.config_line)[0]
 
     def assigne_template(self: ConfigTree, template: ConfigTree) -> None:
-        for template_child in template.child:
-            for self_child in self.child:
+        # for template_child in template.child:
+        #     for self_child in self.child:
+        for self_child in self.child:
+            for indx, template_child in enumerate(template.child):
                 if self_child == template_child and len(self_child.attr) == 0:
                     self_child.attr = template_child.attr.copy()
                     self_child.parse_attr(template_child.format_config_line(mode="re"))
                     self_child.config_line = template_child.config_line
                     self_child.assigne_template(template_child)
+                    template.child.pop(indx)
                     break
 
     def get_attr(self: ConfigTree, config_line: str) -> dict:
@@ -205,7 +208,7 @@ class ConfigTree:
     #     else:
     #         return self
 
-    def merge(self: ConfigTree, obj: ConfigTree) -> None:
+    def merge(self: ConfigTree, obj: ConfigTree, strict: bool = False) -> None:
         if self == obj and len(self.child) == 0 and len(obj.child) == 0 and self.priority < obj.priority:
             obj.attr = self.attr.copy()
             obj.parse_attr(self.format_config_line(mode="re"))
@@ -218,7 +221,7 @@ class ConfigTree:
             else:
                 for self_child in self.child:
                     if self_child == obj_child:
-                        self_child.merge(obj_child)
+                        self_child.merge(obj_child, strict=strict)
 
     def __filter(self: ConfigTree, string: str, with_child: bool) -> list:
         result = []
@@ -254,12 +257,14 @@ class ConfigTree:
     def __intersection(self: ConfigTree, obj: ConfigTree) -> list:
         result = []
         for obj_child in obj.child:
-            for self_child in self.child:
+            for indx, self_child in enumerate(self.child):
                 if self_child.eq(obj_child):
                     if len(self_child.child) != 0:
                         result.extend(self_child.__intersection(obj_child))
 
                     result.append(self_child.copy(with_child=False))
+                    self.child.pop(indx)
+                    break
 
         return result
 
@@ -280,7 +285,7 @@ class ConfigTree:
 
 cfg1 = ConfigTree(
     config_file="cfg1.txt",
-    template_file="cfg.j2",
+    # template_file="cfg.j2",
     priority=101,
 )
 cfg2 = ConfigTree(
@@ -288,14 +293,26 @@ cfg2 = ConfigTree(
     priority=102,
 )
 
+print("~" * 20 + "cfg1")
+print(cfg1.config())
+print("~" * 20 + "cfg2")
+print(cfg2.config())
+print("~" * 20 + "merge")
+cfg1.merge(cfg2)
+print(cfg1.config())
 
-template = ConfigTree(
-    config_file="full.txt",
-)
-config = ConfigTree(
-    config_file="cs-chlb-dz91-oo-1.txt",
-)
+# template = ConfigTree(
+#     config_file="acl.j2",
+# )
+# # template = ConfigTree(
+# #     config_file="full.txt",
+# # )
+# config = ConfigTree(
+#     config_file="cs-chlb-dz91-oo-1.txt",
+#     # template_file="acl.j2",
+# )
 
+# print(config.config(raw=True))
 # # test 01: config
 # print("~" * 20 + "cfg1")
 # print(cfg1.config(raw=True))
@@ -333,16 +350,15 @@ config = ConfigTree(
 # cfg1.delete(f)
 # print(cfg1.config(raw=True))
 
-# test 07: intersection
-print("~" * 20 + "intersection")
-f = config.intersection(template)
-print(f.config(raw=False))
+# # test 07: intersection
+# print("~" * 20 + "intersection")
+# f = config.intersection(template)
+# print(f.config(raw=False))
 
 # # test 08: difference
 # print("~" * 20 + "difference template from config")
 # f = template.difference(config)
 # print(f.config(raw=False))
-
 # print("~" * 20 + "difference config from template")
 # f = config.difference(template)
 # print(f.config(raw=False))

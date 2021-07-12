@@ -1,9 +1,1 @@
 interface Vlan10
- ip address 1.1.1.2 255.255.255.0
- load-interval 10
- no shutdown
- description -= vlan10 =-
-!
-interface Vlan11
- ip address 1.11.1.2 255.255.255.0
-!
