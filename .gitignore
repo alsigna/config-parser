@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+*.txt
+*.j2
 # C extensions
 *.so
 
@@ -128,3 +130,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 cs-chlb-dz91-oo-1.txt
+acl.j2
+acl.j2
