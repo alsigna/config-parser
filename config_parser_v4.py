@@ -129,6 +129,32 @@ class ConfigTree:
         else:
             return False
 
+    def eq3(self: ConfigTree, obj: ConfigTree) -> bool:
+        re_str_self = self.format_config_line(mode="re")
+        re_str_obj = obj.format_config_line(mode="re")
+
+        re_attr_self = {}
+        re_attr_obj = {}
+
+        for attr in self.attr.keys():
+            re_attr_self.setdefault(attr, r"\S+")
+        for attr in obj.attr.keys():
+            re_attr_obj.setdefault(attr, r"\S+")
+
+        match_result_self = re.match(rf"^{re_str_self.format(**re_attr_self)}$", str(obj).strip())
+        match_result_obj = re.match(rf"^{re_str_obj.format(**re_attr_obj)}$", str(self).strip())
+
+        return bool(match_result_self) or bool(match_result_obj)
+
+    def eq2(self: ConfigTree, obj: ConfigTree) -> bool:
+        re_str_self = self.format_config_line(mode="re")
+        re_str_obj = obj.format_config_line(mode="re")
+
+        str_self = re_str_self.format(**self.attr)
+        str_obj = re_str_obj.format(**obj.attr)
+
+        return str_self == str_obj and self.config_line == obj.config_line
+
     def eq(self: ConfigTree, obj: ConfigTree, strict: bool = False) -> bool:
         re_attr_self = self.attr.copy()
         re_attr_obj = obj.attr.copy()
@@ -145,11 +171,44 @@ class ConfigTree:
 
         return self.__compare__(re_attr_self, obj, re_attr_obj)
 
-    def __in(self: ConfigTree, obj: ConfigTree) -> bool:
-        for obj_child in obj.child:
-            if self.eq(obj_child, strict=True):
-                return True
+    def __in_const__(self: ConfigTree, obj: ConfigTree) -> bool:
+        if self.config_line == obj.config_line:
+            return True
         return False
+
+    def __in_param__(self: ConfigTree, obj: ConfigTree) -> bool:
+        if self.eq2(obj):
+            return True
+        return False
+
+    def __in_templ__(self: ConfigTree, obj: ConfigTree) -> bool:
+        if self.eq3(obj):
+            return True
+        return False
+
+    def exists_in(self: ConfigTree, obj: ConfigTree, mode: str = "const") -> bool:
+        for indx, obj_child in enumerate(obj.child):
+            if mode == "const":
+                result = self.__in_const__(obj_child)
+            elif mode == "param":
+                result = self.__in_param__(obj_child)
+            elif mode == "templ":
+                result = self.__in_templ__(obj_child)
+            elif mode == "auto":
+                if not len(obj_child.attr) and not len(self.attr):
+                    result = self.__in_const__(obj_child)
+                # elif len(self.attr):
+                else:
+                    result = self.__in_param__(obj_child)
+                # else:
+                #     result = False
+                # result = self.eq(obj_child)
+                # result = self.__in_templ__(obj_child)
+            else:
+                result = False
+            if result:
+                return indx, True
+        return None, False
 
     def __eq__(self: ConfigTree, obj: ConfigTree) -> bool:
         re_attr_self = {}
@@ -217,6 +276,30 @@ class ConfigTree:
     #     else:
     #         return self
 
+    def attach(self: ConfigTree, obj: ConfigTree, mode: str = "") -> None:
+        if self.eq3(obj) and len(self.child) == 0 and len(obj.child) == 0 and self.priority < obj.priority:
+            if not obj.attr:
+                obj.attr = self.attr.copy()
+                obj.parse_attr(self.format_config_line(mode="re"))
+            self.attr = obj.attr.copy()
+            self.config_line = obj.config_line
+
+        for obj_child in obj.child:
+            if not mode:
+                if obj_child.attr:
+                    indx, match = obj_child.exists_in(self, mode="const")
+                else:
+                    indx, match = obj_child.exists_in(self, mode="templ")
+            if not match:
+                # if not obj_child.exists_in(self, mode="const"):
+                self.child.append(obj_child)
+                obj_child.parent = self
+            else:
+                self.child[indx].attach(obj_child)
+                # for self_child in self.child:
+                #     if self_child == obj_child:
+                #         self_child.merge(obj_child)
+
     def merge(self: ConfigTree, obj: ConfigTree) -> None:
         if self == obj and len(self.child) == 0 and len(obj.child) == 0 and self.priority < obj.priority:
             obj.attr = self.attr.copy()
@@ -239,7 +322,7 @@ class ConfigTree:
             self.attr = obj.attr.copy()
 
         for obj_child in obj.child:
-            if not obj_child.__in(self):
+            if not obj_child.exists_in(self):
                 self.child.append(obj_child)
                 obj_child.parent = self
             else:
@@ -266,64 +349,140 @@ class ConfigTree:
         return root
 
     def delete(self: ConfigTree, obj: ConfigTree) -> None:
+        # for obj_child in obj.child:
+        #     for indx, self_child in enumerate(self.child):
+        #         if self_child.eq(obj_child):
+        #             if len(obj_child.child) != 0:
+        #                 self_child.delete(obj_child)
+        #             if len(self_child.child) == 0:
+        #                 self_child.parent = None
+        #                 self.child.pop(indx)
+        # for self_child in self.child:
         for obj_child in obj.child:
-            for indx, self_child in enumerate(self.child):
-                if self_child.eq(obj_child):
-                    if len(obj_child.child) != 0:
-                        self_child.delete(obj_child)
-                    # else:
-                    # if len(self.child) != 0:
-                    if len(self_child.child) == 0:
-                        # print("del " + str(self_child))
-                        self_child.parent = None
-                        self.child.pop(indx)
+            # if obj_child.attr:
+            #     indx, match = obj_child.exists_in(self, mode="const")
+            # else:
+            indx, match = obj_child.exists_in(self, mode="param")
+            # if not match:
+            #     # if not obj_child.exists_in(self, mode="const"):
+            #     self.child.append(obj_child)
+            #     obj_child.parent = self
+            # else:
+            #     self.child[indx].attach(obj_child)
+            if match:
+                if len(obj_child.child) != 0:
+                    # self_child.delete(obj.child[indx])
+                    self.child[indx].delete(obj_child)
+                # if len(self_child.child) == 0:
+                if len(self.child[indx].child) == 0:
+                    self.child.pop(indx)
+                    obj_child.parent = None
+
+                # if self_child.eq(obj_child):
+                #     if len(obj_child.child) != 0:
+                #         self_child.delete(obj_child)
+                #     if len(self_child.child) == 0:
+                #         self_child.parent = None
+                #         self.child.pop(indx)
 
     def __intersection(self: ConfigTree, obj: ConfigTree) -> list:
         result = []
-        for obj_child in obj.child:
-            for indx, self_child in enumerate(self.child):
-                if self_child.eq(obj_child):
-                    if len(self_child.child) != 0:
-                        result.extend(self_child.__intersection(obj_child))
+        # for obj_child in obj.child:
+        #     for indx, self_child in enumerate(self.child):
+        #         if self_child.eq(obj_child):
+        #             if len(self_child.child) != 0:
+        #                 result.extend(self_child.__intersection(obj_child))
 
-                    result.append(self_child.copy(with_child=False))
-                    self.child.pop(indx)
-                    break
+        #             result.append(self_child.copy(with_child=False))
+        #             self.child.pop(indx)
+        #             break
+
+        # if obj_child.attr:
+        #     indx, match = obj_child.exists_in(self, mode="const")
+        # else:
+        #     indx, match = obj_child.exists_in(self, mode="templ")
+
+        for obj_child in obj.child:
+            # if obj_child.attr:
+            #     indx, match = obj_child.exists_in(self, mode="templ")
+            # else:
+            #     indx, match = obj_child.exists_in(self, mode="templ")
+
+            indx, match = obj_child.exists_in(self, mode="auto")
+            if match:
+                if len(obj_child.child) != 0:
+                    result.extend(self.child[indx].__intersection(obj_child))
+
+                result.append(self.child[indx].copy(with_child=False))
+                self.child.pop(indx)
 
         return result
 
     def intersection(self: ConfigTree, obj: ConfigTree) -> ConfigTree:
         inter = ConfigTree(priority=self.priority)
+        self_copy = self.copy()
         inter_result = []
-        inter_result.extend(self.__intersection(obj))
+        inter_result.extend(self_copy.__intersection(obj))
         for child in inter_result:
-            inter.combine(child)
+            inter.attach(child)
             # inter.merge(child)
         return inter
 
     def difference(self: ConfigTree, obj: ConfigTree) -> ConfigTree:
-        diff = self.copy()
-        inter = self.intersection(obj)
-        diff.delete(inter)
-        return diff
+        # diff = self.copy()
+        # inter = self.intersection(obj)
+        # diff.delete(inter)
+        # return diff
+        self_copy = self.copy()
+        # obj_copy = obj.copy()
+
+        inter = self_copy.intersection(obj)
+        self_copy.delete(inter)
+        return self_copy
 
 
-cfg1 = ConfigTree(
-    config_file="cfg1.txt",
-    template_file="cfg.j2",
-    priority=101,
-)
-cfg2 = ConfigTree(
-    config_file="cfg2.txt",
-    priority=102,
-)
-print(cfg2.child[0] in cfg1.child)
+# cfg1 = ConfigTree(
+#     config_file="cfg1.txt",
+#     template_file="cfg1.j2",
+#     priority=103,
+# )
+# cfg2 = ConfigTree(
+#     config_file="cfg2.txt",
+#     template_file="cfg2.j2",
+#     priority=102,
+# )
+# cfg2_del = ConfigTree(
+#     config_file="cfg2.j2",
+#     priority=102,
+# )
+# print("~" * 20 + "cfg1")
+# print(cfg1.config(raw=True))
+# print("~" * 20 + "cfg2")
+# print(cfg2.config(raw=True))
+
+# print("~" * 20 + "compare")
+# for child in cfg2.child:
+#     child_in, indx = child.exists_in(cfg1, mode="templ")
+#     if child_in:
+#         print(child.config_line)
+
+# print("~" * 20 + "const")
+# print(cfg2.child[0].exists_in(cfg1, mode="const"))
+# print("~" * 20 + "param")
+# print(cfg2.child[0].exists_in(cfg1, mode="param"))
+# print("~" * 20 + "templ")
+# print(cfg2.child[0].exists_in(cfg1, mode="templ"))
+
 # print(cfg2.child[0].__in(cfg1))
 
 # print("~" * 20 + "cfg1")
-# print(cfg1.config())
+# print(cfg1.config(raw=True))
 # print("~" * 20 + "cfg2")
-# print(cfg2.config())
+# print(cfg2.config(raw=True))
+# print("~" * 20 + "test")
+# cfg1.attach(cfg2)
+# print(cfg1.config())
+
 # print("~" * 20 + "merge")
 # cfg1.merge(cfg2)
 # print(cfg1.config())
@@ -333,7 +492,7 @@ template = ConfigTree(
 )
 config = ConfigTree(
     config_file="cs-chlb-dz91-oo-1.txt",
-    # template_file="acl.j2",
+    template_file="cfg1.j2",
 )
 
 # print(config.config(raw=True))
@@ -366,12 +525,21 @@ config = ConfigTree(
 # print(cp.config())
 
 # # test 05: filter
-# f = cfg1.filter("address")
+# print("~" * 20 + "filter")
+# f = cfg1.filter("address").filter("interface \S+0")
 # print(f.config())
 
 # # test 06: delete
-# print("~" * 20 + "filtered")
-# # f = cfg1.filter("^interface Vlan10")
+# print("~" * 20 + "cfg1 before delete")
+# print(cfg1.config(raw=False))
+# print("~" * 20 + "cfg to delete")
+# # f = cfg1.filter("remote-as")
+# print(cfg2_del.config(raw=False))
+# cfg1.delete(cfg2_del)
+# print("~" * 20 + "cfg1 after delete")
+# print(cfg1.config(raw=False))
+
+# f = cfg1.filter("^interface Vlan10")
 # f = cfg1.child[0].copy()
 # print(f.config())
 # print("~" * 20 + "cfg1")
@@ -384,9 +552,9 @@ config = ConfigTree(
 # print(f.config(raw=False))
 
 # test 08: difference
-print("~" * 20 + "difference template from config")
+print("~" * 20 + "diff template from config (need to add to config)")
 f = template.difference(config)
 print(f.config(raw=False))
-# # print("~" * 20 + "difference config from template")
-# # f = config.difference(template)
-# # print(f.config(raw=False))
+print("~" * 20 + "diff config from template (need to delete from config)")
+f = config.difference(template)
+print(f.config(raw=False))
