@@ -18,7 +18,7 @@ class ConfigTree:
         self.attr = self.get_attr(config_line)
         self.config_line = config_line
         self.priority = priority
-        self.skip_line = ["!", "exit-address-family"]
+        self.skip_line = ["!", "end", "exit-address-family"]
         self.action = ""
         if parent is not None:
             parent.child.append(self)
@@ -64,15 +64,25 @@ class ConfigTree:
         child.build_tree(sub_section)
 
     def format_config_line(self: ConfigTree, mode: str = "") -> str:
-        if "{" not in self.config_line and "}" not in self.config_line:
+        if (
+            "{" not in self.config_line
+            and "}" not in self.config_line
+            and "[" not in self.config_line
+            and "]" not in self.config_line
+        ):
             return self.config_line or "root"
         ccb = "<ClosingCurlyBracket>"
         ocb = "<OpeningCurlyBracket>"
         dccb = "<DoubleClosingCurlyBracket>"
         docb = "<DoubleOpeningCurlyBracket>"
+        csb = "<ClosingSquareBracket>"
+        osb = "<OpeningSquareBracket>"
+
         cmd = re.sub(r"{{ (\S+) }}", rf"{docb}\1{dccb}", self.config_line)
-        cmd = re.sub(r"{", ocb, cmd)
-        cmd = re.sub(r"}", ccb, cmd)
+        cmd = re.sub(r"\{", ocb, cmd)
+        cmd = re.sub(r"\}", ccb, cmd)
+        cmd = re.sub(r"\[", osb, cmd)
+        cmd = re.sub(r"\]", csb, cmd)
         if mode == "re":
             cmd = re.sub(dccb, "}", cmd)
             cmd = re.sub(docb, "{", cmd)
@@ -83,6 +93,8 @@ class ConfigTree:
             cmd = cmd.format(**self.attr)
             cmd = re.sub(ccb, "}", cmd)
             cmd = re.sub(ocb, "{", cmd)
+            cmd = re.sub(csb, "]", cmd)
+            cmd = re.sub(osb, "[", cmd)
             return cmd
         else:
             return cmd
@@ -171,6 +183,7 @@ class ConfigTree:
         for attr_name, attr_value in attr_self.items():
             if not param or re.search(r"{{ \S+ }}", attr_value):
                 attr_self[attr_name] = r"\S+"
+        # print(f"{str_self.format(**attr_self)} - {str(obj).strip()}")
         match_result_self = re.match(rf"^{str_self.format(**attr_self)}$", str(obj).strip())
 
         if match_result_self or match_result_obj:
@@ -304,7 +317,7 @@ class ConfigTree:
     def __intersection(self: ConfigTree, obj: ConfigTree) -> list:
         result = []
         for obj_child in obj.child:
-            indx, match = obj_child.exists_in(self)
+            indx, match = obj_child.exists_in(self, bidir=True)
             if match:
                 if len(obj_child.child) != 0:
                     result.extend(self.child[indx].__intersection(obj_child))
@@ -321,7 +334,7 @@ class ConfigTree:
         inter_result.extend(self_copy.__intersection(obj))
         for child in inter_result:
             # inter.attach(child)
-            inter.merge(child)
+            inter.merge(child, templ=False)
         return inter
 
     def difference(self: ConfigTree, obj: ConfigTree) -> ConfigTree:
@@ -356,150 +369,31 @@ class ConfigTree:
 
     def mark_lines(self: ConfigTree, remove_obj: ConfigTree, add_obj: ConfigTree) -> None:
         self.__mark_lines_remove(remove_obj)
-        add_obj.set_action("+", section=True)
-        add_obj.set_priority(self.priority + 1, section=True)
-        self.merge(add_obj, param=True)
+        add_obj_copy = add_obj.copy()
+        add_obj_copy.set_action("+", section=True)
+        add_obj_copy.set_priority(self.priority + 1, section=True)
+        self.merge(add_obj_copy, param=True)
 
     def compliance(self: ConfigTree, obj: ConfigTree) -> tuple:
         intersection = obj.intersection(self)
         add_to_self = obj.difference(self)
-        remove_from_self = cfg3.difference(obj)
+        remove_from_self = self.difference(obj)
         full = self.copy()
         full.mark_lines(remove_from_self, add_to_self)
         return intersection, add_to_self, remove_from_self, full
 
-    ## =====
 
-    # def __compare__(self: ConfigTree, self_attr: dict, obj: ConfigTree, obj_attr: dict) -> bool:
-    #     re_str_self = self.format_config_line(mode="re")
-    #     re_str_obj = obj.format_config_line(mode="re")
-
-    #     if re_str_self == re_str_obj:
-    #         return True
-
-    #     match_result_self = re.match(rf"^{re_str_self.format(**self_attr)}$", str(obj).strip())
-    #     match_result_obj = re.match(rf"^{re_str_obj.format(**obj_attr)}$", str(self).strip())
-
-    #     if match_result_self or match_result_obj:
-    #         return True
-    #     else:
-    #         return False
-
-    # def eq3(self: ConfigTree, obj: ConfigTree) -> bool:
-    #     re_str_self = self.format_config_line(mode="re")
-    #     re_str_obj = obj.format_config_line(mode="re")
-
-    #     re_attr_self = {}
-    #     re_attr_obj = {}
-
-    #     for attr in self.attr.keys():
-    #         re_attr_self.setdefault(attr, r"\S+")
-    #     for attr in obj.attr.keys():
-    #         re_attr_obj.setdefault(attr, r"\S+")
-
-    #     match_result_self = re.match(rf"^{re_str_self.format(**re_attr_self)}$", str(obj).strip())
-    #     match_result_obj = re.match(rf"^{re_str_obj.format(**re_attr_obj)}$", str(self).strip())
-
-    #     return bool(match_result_self) or bool(match_result_obj)
-
-    # def eq2(self: ConfigTree, obj: ConfigTree) -> bool:
-    #     re_str_self = self.format_config_line(mode="re")
-    #     re_str_obj = obj.format_config_line(mode="re")
-
-    #     str_self = re_str_self.format(**self.attr)
-    #     str_obj = re_str_obj.format(**obj.attr)
-
-    #     return str_self == str_obj and self.config_line == obj.config_line
-
-    # def __in_const__(self: ConfigTree, obj: ConfigTree) -> bool:
-    #     if self.config_line == obj.config_line:
-    #         return True
-    #     return False
-
-    # def __in_param__(self: ConfigTree, obj: ConfigTree) -> bool:
-    #     if self.eq2(obj):
-    #         return True
-    #     return False
-
-    # def __in_templ__(self: ConfigTree, obj: ConfigTree) -> bool:
-    #     if self.eq3(obj):
-    #         return True
-    #     return False
-
-    # def __eq__(self: ConfigTree, obj: ConfigTree) -> bool:
-    #     re_attr_self = {}
-    #     re_attr_obj = {}
-
-    #     for attr in self.attr.keys():
-    #         re_attr_self.setdefault(attr, r"\S+")
-    #     for attr in obj.attr.keys():
-    #         re_attr_obj.setdefault(attr, r"\S+")
-
-    #     return self.__compare__(re_attr_self, obj, re_attr_obj)
-
-    # # def full_path(self: ConfigTree) -> ConfigTree:
-    # #     if self.parent is not None:
-    # #         parent = ConfigTree(priority=self.priority)
-    # #         parent.attr = self.parent.attr.copy()
-    # #         parent.config_line = self.parent.config_line
-    # #         parent.child.append(self)
-    # #         parent.parent = self.parent.parent
-    # #         self.parent = parent
-    # #         return parent.full_path()
-    # #     else:
-    # #         return self
-
-    # def attach(self: ConfigTree, obj: ConfigTree, mode: str = "") -> None:
-    #     if self.eq3(obj) and len(self.child) == 0 and len(obj.child) == 0 and self.priority < obj.priority:
-    #         if not obj.attr:
-    #             obj.attr = self.attr.copy()
-    #             obj.parse_attr(self.format_config_line(mode="re"))
-    #         self.attr = obj.attr.copy()
-    #         self.config_line = obj.config_line
-
-    #     for obj_child in obj.child:
-    #         if not mode:
-    #             if obj_child.attr:
-    #                 indx, match = obj_child.exists_in(self, mode="const")
-    #             else:
-    #                 indx, match = obj_child.exists_in(self, mode="templ")
-    #         if not match:
-    #             # if not obj_child.exists_in(self, mode="const"):
-    #             self.child.append(obj_child)
-    #             obj_child.parent = self
-    #         else:
-    #             self.child[indx].attach(obj_child)
-    #             # for self_child in self.child:
-    #             #     if self_child == obj_child:
-    #             #         self_child.merge(obj_child)
-
-    # def combine(self: ConfigTree, obj: ConfigTree) -> None:
-    #     if self.eq(obj) and len(self.child) == 0 and len(obj.child) == 0:
-    #         obj.attr = self.attr.copy()
-    #         obj.parse_attr(self.format_config_line(mode="re"))
-    #         self.attr = obj.attr.copy()
-
-    #     for obj_child in obj.child:
-    #         if not obj_child.exists_in(self):
-    #             self.child.append(obj_child)
-    #             obj_child.parent = self
-    #         else:
-    #             for self_child in self.child:
-    #                 if self_child.eq(obj_child):
-    #                     self_child.combine(obj_child)
-
-
-cfg1 = ConfigTree(
-    config_file="cfg1.txt",
-    # config_file="full.txt",
-    # template_file="cfg1.j2",
-    # priority=103,
-)
-cfg2 = ConfigTree(
-    config_file="cfg2.txt",
-    # template_file="cfg2.j2",
-    priority=101,
-)
+# cfg1 = ConfigTree(
+#     config_file="cfg1.txt",
+#     # config_file="full.txt",
+#     # template_file="cfg1.j2",
+#     # priority=103,
+# )
+# cfg2 = ConfigTree(
+#     config_file="cfg2.txt",
+#     # template_file="cfg2.j2",
+#     priority=101,
+# )
 
 
 # print("~" * 20 + "cfg1")
@@ -528,13 +422,30 @@ cfg2 = ConfigTree(
 
 
 cfg3 = ConfigTree(
-    config_file="cs-chlb-dz91-oo-1.txt",
-    template_file="cs-chlb-dz91-oo-1.j2",
+    config_file="cfg1.txt",
+    # config_file="full_config.txt",
+    # template_file="cfg1.j2",
 )
 tmpl = ConfigTree(
-    config_file="acl.txt",
-    template_file="acl.j2",
+    config_file="cfg2.j2",
+    # config_file="full_config.j2",
+    # template_file="cfg2.j2",
 )
+# dual_hub = ConfigTree(
+#     config_file="dual_hub.j2",
+#     # config_file="dual_hub.j2",
+# )
+
+# print("~" * 20 + "cfg3")
+# print(cfg3.config(raw=True))
+
+# print("~" * 20 + "tmpl")
+# print(tmpl.config(raw=True))
+
+# print("~" * 20 + "intersection")
+# intersection = cfg3.intersection(tmpl)
+# print(intersection.config(raw=True))
+# # tmpl.merge(dual_hub)
 
 intersection, add, rem, full = cfg3.compliance(tmpl)
 print("~" * 20 + "tmpl.intersection(cfg3)")
